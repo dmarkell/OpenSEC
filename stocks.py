@@ -101,6 +101,8 @@ def cusip_to_ticker(cusip):
     results = re.findall(r'<a[^>]*SID_VALUE_ID=([^"]*)', page)
     if results:
         ticker = results[0]
+        ticker = ticker.replace("/", "")
+
 
     return ticker
 
