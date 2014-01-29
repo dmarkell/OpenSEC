@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+    <link href='/static/edgar13f.css' rel='stylesheet' type='text/css' >
+    <link href='http://fonts.googleapis.com/css?family=Droid+Sans' rel='stylesheet' type='text/css'>
+    <link rel='shortcut icon' href='/static/globe_full.png' type='image/x-icon'>
+    <meta name='viewport' content='width=device-width' intial-scale='1'>
+    <title>Filings Tool</title>
+    <script>
+            var toggleHidden = function() {
+                var elems = document.getElementsByClassName("toggle");
+                for (var i=0; i < elems.length; i++) {
+                    if (elems[i].hasAttribute("hidden")) {
+                        elems[i].removeAttribute("hidden");
+                    } else {
+                        elems[i].setAttribute("hidden", "hidden");
+                    }
+                }
+                var elem = document.getElementById("showhide");
+                if (elem.innerHTML == "(+) ") {
+                    elem.innerHTML = "(-) "
+                } else {
+                    elem.innerHTML = "(+) "
+                }
+            }
+    </script>
+
+</head>
+
+<body>
+
+{% block content %}
+{% endblock %}
+
+</body>
+
+</html>

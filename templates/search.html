@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<body>
+
+    
+        <div class="menu">
+
+            <form id="inst-holders" autocomplete="off" method="post">
+                <input type="hidden" name="manager_full" value="{{manager_full}}">
+                {% if not (filings or mgr_matches) %}
+                    <input type="text" id="manager" name="manager"
+                    value="{{manager}}" placeholder="Manager Name...">
+                    <input type="submit" value="Search">
+
+                    {% if error %}
+                    <div class="message error">{{error}}</div>
+                    {% endif %}
+
+                {% endif %}
+                
+                
+                
+                {% if mgr_matches %}
+                
+                <select id="managerselect" name="mgrurl">
+                    {% for match in mgr_matches %}
+                    <option value={{match[0]}}>
+                        {{match[1]}}
+                    </option>
+                    {% endfor %}
+                </select>
+                <input type="submit" value="Select">
+                {% endif %}
+                
+                {% if filings %}
+
+                <select id="dateselect" name="filing_slug">
+                    {% for filing in filings %}
+                    <option value={{filing[0]}}>
+                        {{filing[1]}}
+                    </option>
+                    {% endfor %}
+                </select>
+                <input type="submit" value="Select">
+                {% endif %}
+
+            </form>
+
+            {% if filings or mgr_matches %}
+            <a id="reset" href="/">Reset</a>
+            <div class="message">
+                {{message}}
+            </div>
+            {% endif %}
+            
+        </div>
+        <div class="wrapper">
+            <div class="holdings">
+
+            {% block holdings %}
+            {% endblock %}
+                        
+            </div>
+
+            <div class ="prices">
+            {% block price %}
+            {% endblock %}
+
+            </div>
+
+
+    </div>
+
+</body>
+
+{% endblock %}

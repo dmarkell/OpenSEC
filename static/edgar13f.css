@@ -1,0 +1,275 @@
+*[hidden] {display: none;}
+
+html, body {
+    margin:0px;
+    padding:0;
+    width: 100%;
+}
+
+input, textarea, select {
+    font-family: inherit;
+}
+
+body {
+    font-family: 'Droid Sans', Helvetica, sans-serif;
+    background: #f0f0f0 url(worn_dots.png);
+}
+
+.wrapper {
+    margin:auto;
+    width:80%;
+}
+
+header {
+    background-color: #bdc3c7;
+    width:100%;
+    margin:0;
+    font-size:2em;
+    font-weight:bold;
+}
+
+.menu{
+    background-color: #bdc3c7;
+    text-align: center;
+}
+
+/* Search form */
+
+form {
+    margin: auto;
+    text-align: center;
+    font-family: inherit;
+    display: inline-block;
+}
+
+
+form p {
+    margin:0px;
+}
+
+option {
+    padding:8px 5px;
+    border: 2px solid #bdc3c7;
+}
+
+label {
+    margin: 0;
+    display: block;
+}
+
+input, select, #reset {
+    padding: 8px 12px;
+    margin: 5px;
+    border: 0;
+    font-weight: bold;
+    border-radius: 6px;
+    font-size: 15px;
+}
+
+input[type="submit"],
+#reset {
+    /*padding: 5px 10px;*/
+    color: #34495E;
+    border: 2px solid #34495E;
+}
+
+
+input[type="submit"]:hover,
+#reset:hover {
+    color: #34495E;
+    border: 2px solid #2ECC71;
+    background-color:white;
+    text-decoration: none;
+    cursor:pointer;
+}
+
+/* Results table --------------- */
+
+.results {
+    position:relative;
+}
+
+legend {
+    font-size: 1.17em;
+    font-weight: bold;
+    margin: 1em auto 1em auto;
+}
+
+table {
+    margin:5px auto;
+    padding: 4px;
+    border-collapse: collapse;
+    font-size:0.8em;
+    background-color: #f0f0f0;
+}
+
+td {
+    vertical-align: top;
+    /*padding: 3px;*/
+    
+}
+
+tfoot > tr:last-child > th:first-child {
+    border-radius: 0 0 0 8px;
+}
+
+tfoot > tr:last-child > th:last-child {
+    border-radius: 0 0 8px 0;
+}
+
+caption {
+    padding:0;
+
+    background-color: grey;
+    color: white;    
+    
+    font-size: 1.5em;
+    font-weight: bold;
+    letter-spacing: 2px;
+    border-radius: 8px 8px 0 0 ;
+
+    
+    /* hack: */
+    position: relative;
+    height: 2.35em; /* 45px */
+    
+}
+
+#manager-full,
+#filing-full {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis; 
+    
+    /* hack: */
+    position:absolute;
+    width:100%;
+}
+
+/* hacks: */
+#manager-full {
+    top:0;
+}
+#filing-full {
+    bottom:0;
+}
+
+
+
+a {
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+
+
+tr:nth-child(odd) {
+    background-color: #c8c8c8;
+}
+
+thead th, tfoot th {
+    text-align: center;
+    background-color: grey;
+    color: white;    
+}
+
+thead th {
+    padding: 10px;
+}
+
+tbody th {
+    text-align: left;
+    background-color: lightgrey;
+    color: grey;
+}
+
+.text-left {
+    text-align: left;
+}
+
+.text-center {
+    text-align: center;
+}
+
+.message {
+    padding-bottom: 8px;
+}
+
+.error {
+    color:red;
+}
+
+.text-right {
+    text-align: right;
+}
+
+.percent {
+    text-align: right;
+}
+
+.issuer {
+    width: 250px;
+    text-transform: uppercase;
+}
+
+.issuer,
+.ticker {
+     border-right: 1px solid grey;
+}
+
+
+div.outer {
+    position: relative;
+
+}
+
+div.inner {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    position: absolute;
+    width: 100%;
+}
+
+button {
+    width:100%;
+    border-radius: 6px;
+    margin-left:0px;
+    padding: 5px 30px;
+    font-weight: bold;
+    background-color:white;
+    color: #34495E;
+    border: 2px solid #34495E;
+}
+
+button:hover{
+    color: #34495E;
+    border: 2px solid #2ECC71;
+    cursor:pointer;
+}
+
+ 
+/* Media queries -------------------- */
+
+@media screen and (max-width: 720px) {
+
+}
+
+@media screen and (max-width: 500px) {
+    .option {
+        display: none;
+    }
+
+    tfoot > tr:last-child > th.percent {
+    border-radius: 0 0 8px 0;
+}
+}
+
+@media screen and (min-width: 1000px) {
+    .wrapper {
+        width: 800px;
+    }
+}
