@@ -9,6 +9,7 @@ import stocks
 import webapp2
 
 from google.appengine.api import memcache
+from google.appengine.ext import ndb
 
 # Template utils
 template_dir = os.getcwd() + '/templates'
@@ -19,6 +20,9 @@ jinja_env = jinja2.Environment(
 def render_str(template, **params):
     t = jinja_env.get_template(template)
     return t.render(params)
+
+def secs_key(group = 'default'):
+    return ndb.Key('secs', group)
 
 def clean_filing(filing):
     """Adds up market value and percentages column and sorts by market value
@@ -33,12 +37,22 @@ def clean_filing(filing):
     for holding in filing:
         row = []
         row += holding[:2]
+        cusip = holding[1]
 
-        # Runs cusip_to_ticker only on cache miss
-        ticker = memcache.get(holding[1])
-        if not ticker:
-            ticker = stocks.cusip_to_ticker(holding[1])
-            memcache.set(holding[1], ticker)
+        # Look in db...
+        security = Security.query(
+            Security.cusip == cusip, ancestor=secs_key()).get()
+        if security:
+            ticker = security.ticker
+        else:
+            # On db miss run cusip_to_ticker...
+            ticker = stocks.cusip_to_ticker(cusip)
+            if ticker:
+                # ... and add to db: 
+                security = Security(parent=secs_key())
+                security.cusip=cusip
+                security.ticker=ticker
+                security.put()
 
         row.append(ticker)
         mv = int(str(holding[2]).replace(",", ""))
@@ -71,6 +85,10 @@ class Handler(webapp2.RequestHandler):
 
     def render(self, template, **kw):
         self.write(render_str(template, **kw))
+
+class Security(ndb.Model):
+    cusip = ndb.StringProperty(required = True)
+    ticker = ndb.StringProperty(required = True)
 
 class Filing:
 
