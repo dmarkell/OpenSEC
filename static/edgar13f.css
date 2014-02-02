@@ -85,6 +85,11 @@ input[type="submit"]:hover,
 
 /* Results table --------------- */
 
+caption a {
+    color: white;
+    text-decoration: underline;
+}
+
 .results {
     position:relative;
 }
@@ -150,6 +155,7 @@ caption {
 #manager-full {
     top:0;
 }
+
 #filing-full {
     bottom:0;
 }

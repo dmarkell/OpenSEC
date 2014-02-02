@@ -76,8 +76,8 @@ class Filing:
 
     def __init__(self, slug):
         self.slug = slug
-        url = "http://www.sec.gov{}".format(self.slug)
-        holdings, asof, mv_rep, ct_rep = crawler.crawl_filing(url)
+        self.url = "http://www.sec.gov{}".format(self.slug)
+        holdings, asof, mv_rep, ct_rep = crawler.crawl_filing(self.url)
         body, ct, mv_tot, pct_tot = clean_filing(holdings)
         meta = dict(asof=asof, count=ct, mv_tot=mv_tot, pct_tot=pct_tot,
                  mv_rep=mv_rep, ct_rep=ct_rep)
