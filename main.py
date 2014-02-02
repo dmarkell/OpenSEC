@@ -8,7 +8,6 @@ import re
 import stocks
 import webapp2
 
-from google.appengine.api import memcache
 from google.appengine.ext import ndb
 
 # Template utils
@@ -135,11 +134,7 @@ class Search(Handler):
         if self.filing_slug:
             self.params['manager_full'] = self.request.get('manager_full')
             
-            # Runs crawl_filing only on cache miss
-            filing = memcache.get(self.filing_slug)
-            if not filing:
-                filing = Filing(self.filing_slug)
-                memcache.set(filing.slug, filing)
+            filing = Filing(self.filing_slug)
 
             self.params['filing'] = filing
             self.render("results.html", **self.params)
