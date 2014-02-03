@@ -260,9 +260,6 @@ button:hover{
  
 /* Media queries -------------------- */
 
-@media screen and (max-width: 720px) {
-
-}
 
 @media screen and (max-width: 500px) {
     .option {
@@ -271,7 +268,7 @@ button:hover{
 
     tfoot > tr:last-child > th.percent {
     border-radius: 0 0 8px 0;
-}
+    }
 }
 
 @media screen and (min-width: 1000px) {
