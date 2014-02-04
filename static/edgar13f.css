@@ -22,14 +22,21 @@ body {
 
 header {
     background-color: #bdc3c7;
+    color: midnightblue;
     width:100%;
     margin:0;
-    font-size:2em;
-    font-weight:bold;
+    padding-left: 2%; /* 20px */
+}
+
+header, .menu {
+    background-color: #bdc3c7;
+}
+
+header {
+    font-size: 2em;
 }
 
 .menu{
-    background-color: #bdc3c7;
     text-align: center;
 }
 
@@ -39,7 +46,6 @@ form {
     margin: auto;
     text-align: center;
     font-family: inherit;
-    display: inline-block;
 }
 
 
@@ -57,29 +63,55 @@ label {
     display: block;
 }
 
-input, select, #reset {
+
+input, .reset {
+    border: 0;
+    font-weight: bold;
+    font-size: 15px;
+}
+
+select {
     padding: 8px 12px;
-    margin: 5px;
     border: 0;
     font-weight: bold;
     border-radius: 6px;
     font-size: 15px;
+    -webkit-appearance: none;
 }
 
-input[type="submit"],
-#reset {
-    /*padding: 5px 10px;*/
-    color: #34495E;
-    border: 2px solid #34495E;
+.input-wrapper {
+    margin: 10px auto;
+    border-radius: 6px;
+    background-color: white;
+    display: inline-block;
+    overflow: hidden;
 }
 
+input[type=search] {
+    padding: 5px;
+}
 
-input[type="submit"]:hover,
-#reset:hover {
-    color: #34495E;
-    border: 2px solid #2ECC71;
-    background-color:white;
-    text-decoration: none;
+input[type=submit] {
+    text-indent: -9999px;
+    padding: 0;
+    width: 32px;
+    height: 32px;
+    margin: 5px;
+    display: inline-block;
+    background: transparent url(sprites.svg) no-repeat;    
+}
+
+input[type=submit].search {
+    background-position: 0 0;
+}
+
+input[type=submit].select {
+    background-position: -48px 0;
+}
+
+input[type=submit].search:hover,
+input[type=submit].select:hover,
+.reset:hover {
     cursor:pointer;
 }
 

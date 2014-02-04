@@ -10,46 +10,46 @@
             <form id="inst-holders" autocomplete="off" method="post">
                 <input type="hidden" name="manager_full" value="{{manager_full}}">
                 {% if not (filings or mgr_matches) %}
-                    <input type="text" id="manager" name="manager"
-                    value="{{manager}}" placeholder="Manager Name...">
-                    <input type="submit" value="Search">
-
+                    <div class="input-wrapper">
+                        <input type="search" id="manager" name="manager"
+                        value="{{manager}}" placeholder="Manager Name...">
+                        <input type="submit" class="search" value="Search">
+                    </div>
                     {% if error %}
                     <div class="message error">{{error}}</div>
                     {% endif %}
-
                 {% endif %}
-                
-                
                 
                 {% if mgr_matches %}
                 
-                <select id="managerselect" name="mgrurl">
-                    {% for match in mgr_matches %}
-                    <option value={{match[0]}}>
-                        {{match[1]}}
-                    </option>
-                    {% endfor %}
-                </select>
-                <input type="submit" value="Select">
+                <div class="input-wrapper">
+                    <select id="managerselect" name="mgrurl">
+                        {% for match in mgr_matches %}
+                        <option value={{match[0]}}>
+                            {{match[1]}}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <input type="submit" class="select" value="Select">
+                </div>
                 {% endif %}
                 
                 {% if filings %}
-
-                <select id="dateselect" name="filing_slug">
-                    {% for filing in filings %}
-                    <option value={{filing[0]}}>
-                        {{filing[1]}}
-                    </option>
-                    {% endfor %}
-                </select>
-                <input type="submit" value="Select">
+                <div class="input-wrapper">
+                    <select id="dateselect" name="filing_slug">
+                        {% for filing in filings %}
+                        <option value={{filing[0]}}>
+                            {{filing[1]}}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <input type="submit" class="select" value="Select">
+                </div>
                 {% endif %}
 
             </form>
 
             {% if filings or mgr_matches %}
-            <a id="reset" href="/">Reset</a>
             <div class="message">
                 {{message}}
             </div>
