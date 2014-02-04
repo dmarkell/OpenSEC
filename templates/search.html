@@ -23,7 +23,7 @@
                 {% if mgr_matches %}
                 
                 <div class="input-wrapper">
-                    <select id="managerselect" name="mgrurl">
+                    <select autofocus="autofocus" id="managerselect" name="mgrurl">
                         {% for match in mgr_matches %}
                         <option value={{match[0]}}>
                             {{match[1]}}
@@ -36,7 +36,7 @@
                 
                 {% if filings %}
                 <div class="input-wrapper">
-                    <select id="dateselect" name="filing_slug">
+                    <select autofocus="autofocus" id="dateselect" name="filing_slug">
                         {% for filing in filings %}
                         <option value={{filing[0]}}>
                             {{filing[1]}}
