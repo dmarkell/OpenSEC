@@ -75,6 +75,8 @@ def clean_filing(filing):
     mv_tot = "{:,}".format(mv_tot)
     pct_tot = "{:.1f}%".format(pct_tot)
 
+    logging.error(map(lambda x: x[2], clean_filing))
+
     return clean_filing, ct, mv_tot, pct_tot
 
 class Handler(webapp2.RequestHandler):
