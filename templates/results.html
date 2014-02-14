@@ -1,11 +1,11 @@
 {% extends "search.html" %}
-{% block holdings %}
+{% block manager %}
 
 <table align="center">
     <caption>
-        <div id="manager-full">{{manager_full}}</div>
-        <div id="filing-full">
-            <a target="_blank" href={{filing.url}}>
+        <div class="top">{{manager_full}}</div>
+        <div class="bottom">
+            <a href={{filing.url}}>
                 {{filing.meta['asof']}} 13F Filing
             </a>
         </div>
@@ -28,7 +28,7 @@
             <td class="issuer text-left">
                 <div class="outer">
                     <div class="inner">
-                        <a href="http://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&count=100&CIK=&type=10-&ticker={{row[2]}}" target="_blank">
+                        <a href="http://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&count=100&CIK=&type=10-&ticker={{row[2]}}">
                             {{row[0]}}
                         </a>
                     </div>
@@ -36,7 +36,7 @@
             </td>
             
             <td class="ticker text-center">
-                <a href="http://finance.yahoo.com/q/hp?s={{row[2]}}+Historical+Prices&g=m" target="_blank">
+                <a href="http://finance.yahoo.com/q/hp?s={{row[2]}}+Historical+Prices&g=m">
                     {{row[2]}}
                 </a>
             </td>

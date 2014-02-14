@@ -2,9 +2,8 @@
 
 {% block content %}
 
-<body>
-
-    
+    <header>
+        <h1>Filings Search Tool</h1>
         <div class="menu">
 
             <form id="inst-holders" autocomplete="off" method="post">
@@ -47,32 +46,27 @@
                 </div>
                 {% endif %}
 
-            </form>
-
             {% if filings or mgr_matches %}
             <div class="message">
                 {{message}}
             </div>
             {% endif %}
-            
-        </div>
-        <div class="wrapper">
-            <div class="holdings">
+            </form>
 
-            {% block holdings %}
-            {% endblock %}
-                        
+        </div>
+    </header>
+        <div class="wrapper">
+            <div class="manager">
+                {% block manager %}
+                {% endblock %}
             </div>
 
-            <div class ="prices">
-            {% block price %}
-            {% endblock %}
-
+            <div class ="company">
+                {% block company %}
+                {% endblock %}
             </div>
 
 
     </div>
-
-</body>
 
 {% endblock %}
