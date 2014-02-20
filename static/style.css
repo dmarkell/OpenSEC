@@ -3,8 +3,6 @@
 html, body {
     margin:0;
     padding:0;
-    height: 3000px;
-    /*width: 100%;*/
 }
 
 input, textarea, select {
@@ -61,14 +59,14 @@ body:after {
 }
 
 body:before {
-    box-shadow: 0 1px 1px rgba(0, 0, 0, 1);
+    box-shadow: 0 1px 3px midnightblue;
     z-index: 9997;
 }
 
 body:after {
     position: absolute;
     top: 90px;
-    height: 2px;
+    height: 3px;
     background: inherit;
     z-index: 9998;
 }
@@ -81,6 +79,10 @@ header h1 {
 
 /* --END header & envelope -------- */
 
+/* Footer ------------------------  */
+
+
+/* --END footer ------------------ */
 
 /* Search form */
 
@@ -235,8 +237,9 @@ caption a {
     text-decoration: underline;
 }
 
-tfoot th,
-.manager thead {
+.manager tfoot th,
+.manager thead,
+.company tr:nth-child(n+13) {
     text-align: center;
     background-color: grey;
     color: white;
@@ -247,9 +250,15 @@ thead th {
 }
 
 /* Rounded lower left and lower right corners of tfoot: */
-.manager tfoot > tr:last-child > th:first-child {border-radius: 0 0 0 8px;}
-.company tfoot > tr:last-child > th:nth-child(2) {border-radius: 0 0 0 8px;}
-tfoot > tr:last-child > th:last-child {border-radius: 0 0 8px 0;}
+.manager tfoot > tr:last-child > th:first-child,
+.company tr:last-child > th:nth-child(2) {
+    border-radius: 0 0 0 8px;
+}
+
+tfoot > tr:last-child > th:last-child,
+.company tr:last-child > td:last-child {
+    border-radius: 0 0 8px 0;
+}
 
 /* Manager table --------------- */
 
@@ -387,6 +396,11 @@ button:hover{
     top: -9px; /* This would be different if using "display: table-cell" */
 }
 
+.company tbody tr:nth-last-child(2) th:first-child {
+    top: 0px;
+    color: white;
+}
+
 /* Top row of each quarterly cluster aligned bottom */
 .company tbody tr:nth-child(3n+1) {
     vertical-align: bottom;
@@ -403,23 +417,38 @@ button:hover{
     height: 1.75em;
 }
 
+.company tbody tr:nth-last-child(2) {
+    height: 3em;
+}
+
+.company tbody tr:last-child {
+    background-color: grey;
+}
+
+table + p {
+    font-size: 0.8em;
+    font-style: italic;
+    text-align: right;
+}
+
 /* --END company table---------- */
 
 
 /* Media queries -------------------- */
 
 @media only screen and (max-width: 560px) {
-    .company td:nth-last-child(1),
-    .company th:nth-last-child(1) {
+    .company td:nth-child(7),
+    .company th:nth-child(7) {
         display: none;
     }
 
-    .company td:nth-last-child(2),
-    .company th:nth-last-child(2) {
+    .company td:nth-child(6),
+    .company th:nth-child(6) {
         border-right: 0;
     }
 
-    .company tfoot > tr:last-child > th:nth-last-child(2) {
+
+    .company tr:last-child > td:nth-child(6) {
         border-radius: 0 0 8px 0;
     }
 
@@ -443,16 +472,21 @@ button:hover{
     }
 }
 
-@media screen and (max-width: 480px) {
-    .company td:nth-last-child(2),
-    .company th:nth-last-child(2) {
+@media only screen and (max-width: 480px) {
+    .company td:nth-child(6),
+    .company th:nth-child(6) {
         display: none;
     }
 
-    .company td:nth-last-child(3),
-    .company th:nth-last-child(3) {
+    .company td:nth-child(5),
+    .company th:nth-child(5) {
         border-right: 0;
     }
+
+    .company tr:last-child > td:nth-child(5) {
+        border-radius: 0 0 8px 0;
+    }
+
 }
 
 @media only screen and (min-width: 650px) {

@@ -1,0 +1,88 @@
+{% extends "search.html" %}
+{% block company %}
+
+
+<table>
+    <caption>
+        <div>{{meta['name']}} ({{meta['ticker']}})</div>
+        <div class="small">
+            <div class="left">Last: {{prices['last']}}</div>
+            <div class="right">Shs: {{metrics['shs']}}</div>
+        </div>
+    </caption>
+
+    <thead>
+        <tr>
+            <th></th>
+            <th></th>
+            {% for year in metrics['years'] %}
+            <th>{{year}}</th>
+            {% endfor %}
+        </tr>
+    </thead>
+    <tbody>
+        {% for month in metrics['months'] %}
+            {% set m = loop.index0 %}
+            <tr>
+                <th>{{month[1]}}</th>
+                <th>Revenue</th>
+                {% for year in metrics['years'] %}
+                    {% set y = loop.index0 %}
+                    <td>
+                        {% if metrics['revenues'][y][m] %}
+                            {{metrics['revenues'][y][m]}}
+                        {% endif %}
+                    </td>
+                {% endfor %}
+            </tr>
+
+            <tr>
+                <th>{{month[1]}}</th>
+                <th>EPS</th>
+                {% for year in metrics['years'] %}
+                    {% set y = loop.index0 %}
+                    <td>
+                        {% if metrics['eps'][y][m] %}
+                            {{metrics['eps'][y][m]}}
+                        {% endif %}
+                    </td>
+                {% endfor %}
+            </tr>
+
+            <tr>
+                <th>{{month[1]}}</th>
+                <th>Filed</th>
+                {% for year in metrics['years'] %}
+                    {% set y = loop.index0 %}
+                    <td>
+                        {% if metrics['filedates'][y][m] %}
+                            {{metrics['filedates'][y][m]}}
+                        {% endif %}
+                    </td>
+                    {% endfor %}
+            </tr>
+        {% endfor %}
+
+        <tr>
+            <th>Year</th>
+            <th>Revenue</th>
+            {% for year in metrics['years'] %}
+                {% set y = loop.index0 %}
+                <td>{{metrics['revenue_totals'][y]}}</td>
+            {% endfor %}
+        </tr>
+        <tr>
+            <th>Year</th>
+            <th>EPS</th>
+            {% for year in metrics['years'] %}
+                {% set y = loop.index0 %}
+                <td>{{metrics['eps_totals'][y]}}</td>
+            {% endfor %}
+        </tr>
+    </tbody>
+
+</table>
+<p>Values in {{metrics['unit'][1]}} USD except per share amounts</p>
+
+
+{% endblock %}
