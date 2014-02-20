@@ -1,3 +1,4 @@
 test/*
 *.pyc
 *.db
+dumps/
