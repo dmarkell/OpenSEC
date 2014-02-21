@@ -535,6 +535,8 @@ class AccountingFields:
             self.filing.fields['EarningsPerShare'] = self.filing.name_matches('EarningsPerShareBasicAndDiluted')
             if not self.filing.fields['EarningsPerShare']:
                 self.filing.fields['EarningsPerShare'] = self.filing.name_matches('BasicDilutedEarningsPerShareNetIncome', non_core=True)
+                if not self.filing.fields['EarningsPerShare']:
+                    self.filing.fields['EarningsPerShare'] = self.filing.name_matches('BasicAndDilutedLossPerShare')
 
         # If wtd avg shares above didn't work, impute from earnings per share
         if not self.filing.fields['WeightedAverageDilutedShares']:
