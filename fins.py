@@ -225,13 +225,13 @@ class Company:
         
         # Get from disk unless flush=True (overwrite)
         if not flush:
-                self.filename = "{}/{}.txt".format(disk, ticker)
-                if os.path.exists(self.filename):
-                    with open(self.filename, 'r') as f:
-                        data = json.loads(f.read())
-                        self.meta = data.get('meta')
-                        self.filings = data.get('filings')
-                        self.prices = data.get('prices')
+            self.filename = "{}/{}.txt".format(disk, ticker)
+            if os.path.exists(self.filename):
+                with open(self.filename, 'r') as f:
+                    data = json.loads(f.read())
+                    self.meta = data.get('meta')
+                    self.filings = data.get('filings')
+                    self.prices = data.get('prices')
 
         if not self.filings:
             # TODO: get cik & name from filing(s)
@@ -318,7 +318,6 @@ class Company:
 
         unit_label = unit_labels[unit]
         return unit, unit_label
-
 
     def to_array(self, key, fields):
 

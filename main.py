@@ -184,10 +184,12 @@ class CompanyResults(Handler):
         memcache.set(ticker, company)
         self.render("company.html", **company)
 
+    def post(self, ticker):
+        self.redirect("/")
 
 app = webapp2.WSGIApplication(
     [
-    ('/', Search),
-    ('/company/(.+)', CompanyResults)
+    ('/company/(.+)', CompanyResults),
+    ('/?.*', Search)
     ], debug=True)
 
