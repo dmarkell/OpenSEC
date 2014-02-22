@@ -13,105 +13,19 @@ from xml.dom import minidom
 ROOT = "http://www.sec.gov/"
 SEARCH_PATH = "cgi-bin/browse-edgar/?"
 DATA_PATH = "Archives/edgar/data/"
-# Pre-compile index URL pattern data/CIK/[ACC/]ACC_w_dashes/index.htm[l] :
-p_index = re.compile("data/(\d+)/(?:\d{18}/)?(\d{10}-\d{2}-\d{6})(-index.html?)")
-DUMPS_PATH = '/Users/devinmarkell/Dropbox/Code/edgar/dumps'
-
-
-def get_filings_list(ticker):
-
-    logging.error("Getting {} filings list...".format(ticker))
-
-    filings = []
-
-    name = cik = ''
-    for type in ['10-', '20-']:
-        params = dict(action="getcompany", count=100, type=type, ticker=ticker)
-        params = urllib.urlencode(params)
-        url = "{}{}{}".format(ROOT, SEARCH_PATH, params)
-        
-        new_name, new_cik = scrape_sec_index(url, filings)
-        name = new_name if new_name else name
-        cik = new_cik if new_cik else name
-
-    return filings, name, cik
-
-def scrape_sec_index(url, filings):
-    
-    source = urllib2.urlopen(url).read()
-    # Get rows matching <tr ... >innerHTML</tr> pattern, skipping first 3 rowsfins
-    name = re.findall(r'companyName">([\s\S]*?)<', source)
-    name = name[0].strip() if name else None
-    cik = re.findall(r'CIK=(\d{10})', source)
-    cik = cik[0].strip() if cik else None
-    rows = re.findall(r'<tr[\s\S]*?>[\s\S]*?</tr>', source)[3:]
-
-    for row in rows:
-        date = re.findall(r'<td>(\d{4}-\d{2}-\d{2})</td>', row)[0]
-
-        cik_s, acc_l, suffix = p_index.findall(row)[0]
-        acc_s = acc_l.replace("-", "")
-        base = "{}{}".format(ROOT, DATA_PATH)
-        slug_s = '/'.join((cik_s, acc_s))
-        slug_l = '/'.join((slug_s, acc_l))
-
-        if row.find("interactiveDataBtn") <> -1:
-            # If interactive filing (XML) visit index page
-            url = "{}{}{}".format(base, slug_l, suffix)
-            source = urllib2.urlopen(url).read()
-            # Full xml filing slug ends in "/" + letters + 8-digit date + ".xml" 
-            p = re.compile("{}(\d+/{}/\D+-\d{{8}}.xml)".format(DATA_PATH, acc_s))
-            url = "{}{}".format(base, p.findall(source)[0])
-        else:
-            # For non-interactive filing, get full text version
-            url = "{}{}.txt".format(base, slug_l)
-
-        # Add (date, url) tuple to filings list
-        filings.append((date, url))
-
-
-
-    return name, cik
-
-def get_filing(url):
-
-    logging.error("\tRetrieving http://...{}".format(url[-12:]))
-
-    try:
-        _file = urllib2.urlopen(url)
-    except:
-        logging.error("Error opening url!")
-        return None
-
-    logging.error("\t\tParsing xml...")
-
-    try:
-        xml = minidom.parse(_file)
-    except:
-        logging.error("Error parsing!")
-        return None
-
-    logging.error("\t\t\tCreating Filing object ...")
-
-    schema = Schema(xml)
-    xbrl = xml.getElementsByTagName("{}xbrl".format(schema.pre))[0]
-    filing = Filing(xbrl, schema)
-
-
-    return filing
 
 
 class Filing:
 
     def __init__(self, xbrl, schema):
+
         self.schema = schema
+        
         instances = filter(self.is_instance, xbrl.childNodes)
         # Should this be done only as needed?
         self.instances = map(self.account_map, instances) #!!
         self.core_instances = filter(self.is_core, self.instances)
         AccountingFields(self)
-        # This should always work but should be replaced:
-        self.asof = max([el[0][0] for el in self.fields['Revenues']])
 
     def is_instance(self, node):
 
@@ -177,8 +91,12 @@ class Schema:
 
     def __init__(self, xml):
         self.xml = xml
-        self.pre = "xbrli:" if xml.getElementsByTagName("xbrli:xbrl") else ""
-        contexts = xml.getElementsByTagName("{}context".format(self.pre))
+        contexts = xml.getElementsByTagName("xbrli:context")
+        if contexts:
+            self.pre = "xbrli:"
+        else:
+            self.pre = ""
+            contexts = xml.getElementsByTagName("context")
         contexts_detail = map(self.context_map, contexts)
         core = filter(lambda x: x[-1], contexts_detail)
         self.core_keys = map(lambda x: x[0], core)
@@ -186,15 +104,22 @@ class Schema:
         # May be a lot slower to map for all contexts--consider doing this step
         # only on demand as needed (i.e. if looking for non-core nodes)
         self.contexts = dict(map(lambda x: x[:-1], contexts_detail))
-
-    # Not used:
-    def is_core(self, node):
+    
+    def is_core(self, node):# Not used
         """ Returns True if context is core (has no 'segment' tag).
         NOTES:
             - Most gaap data will come from core nodes so these are separated
         """
         seg_tag = "{}segment".format(self.pre)
         return not node.getElementsByTagName(seg_tag)
+
+    def node_content(self, nodes):
+
+        content = None
+        if nodes:
+            content = nodes[0].firstChild.nodeValue.strip()
+
+        return content
 
     # This also checks whether context is core
     def context_map(self, context):
@@ -205,54 +130,101 @@ class Schema:
         context_ref = context.attributes['id'].firstChild.nodeValue
         instant = context.getElementsByTagName("{}instant".format(self.pre))
         if instant:
-            period = [instant[0].firstChild.nodeValue for i in xrange(2)]
+            period = [self.node_content(instant) for i in xrange(2)]
         else:
             start = context.getElementsByTagName("{}startDate".format(self.pre))
             end = context.getElementsByTagName("{}endDate".format(self.pre))
-            period = map(lambda x: x[0].firstChild.nodeValue if x else None, (end, start))
+            period = map(self.node_content, (end, start))
 
         return context_ref, tuple(period), core
 
 
 class Company:
 
-    def __init__(self, ticker, disk=DUMPS_PATH, flush=False):
+    def __init__(self, ticker):
+
+        self.filings_list = []
+        self.meta = dict(ticker=ticker.upper(), filing_dates=[])
+        self.filings = dict() # all fields found by AccountingFields
+        self.prices = dict() # TODO: This will contain Yahoo! dataframe
         
-        start = time.time()
-        logging.error("<--- Building Company instance...")
+        self.get_filings()
 
-        self.filings = None
-        
-        # Get from disk unless flush=True (overwrite)
-        if not flush:
-            self.filename = "{}/{}.txt".format(disk, ticker)
-            if os.path.exists(self.filename):
-                with open(self.filename, 'r') as f:
-                    data = json.loads(f.read())
-                    self.meta = data.get('meta')
-                    self.filings = data.get('filings')
-                    self.prices = data.get('prices')
+    def get_filings(self):
 
-        if not self.filings:
-            # TODO: get cik & name from filing(s)
-            self.meta = dict(ticker=ticker.upper(), filing_dates=[])
-            self.filings = dict() # all fields found by AccountingFields
-            self.prices = dict() # TODO: This will contain Yahoo! dataframe
+        if not self.filings_list:
+            self.get_filings_list()
 
-            docs, name, self.meta['cik'] = get_filings_list(ticker)
-            self.meta['name'] = name.upper()
-            xml_docs = filter(lambda x: x[1].endswith('.xml'), docs)
-        
-            for date, url in xml_docs:
-                filing = get_filing(url)
-                self.meta['filing_dates'].append((filing.asof, date))
-                self.filings["{}|{}".format(date, url)] = filing.fields
+        for fdate, ftype, furl in self.filings_list:
 
-            self.meta['filing_dates'] = sorted(self.meta['filing_dates'],
-                reverse=True)
+            filing = self.get_filing(furl)
+            key = "{}|{}".format(fdate, furl)
+            self.filings[key] = filing.fields
 
-        logging.error("---> Finished. {} seconds".format(str(time.time() - start)))
-        
+    def get_filing(self, url):
+
+        try:
+            _file = urllib2.urlopen(url)
+        except:
+            logging.error("Error opening url!")
+            return None
+
+        try:
+            xml = minidom.parse(_file)
+        except:
+            logging.error("Error parsing!")
+            return None
+
+        schema = Schema(xml)
+        xbrl = filter(lambda x: x.nodeType == 1, xml.childNodes)[0]
+        ticker = self.meta['ticker']
+        filer_ns = xbrl.attributes['xmlns:' + ticker.lower()].nodeValue
+        asof = filer_ns.split('/')[-1]
+        asof = "{}-{}-{}".format(asof[:4], asof[4:6], asof[6:])
+        filing = Filing(xbrl, schema)
+        filing.fields['asof'] = asof
+
+        return filing
+
+    def get_filings_list(self):
+
+        params = dict(action="getcompany", count=100, output='atom')
+        params['ticker']= self.meta['ticker']
+        params['type'] = '10-'
+    
+        params = urllib.urlencode(params)
+        url = "{}{}{}".format(ROOT, SEARCH_PATH, params)
+        xml = minidom.parse(urllib2.urlopen(url))
+
+        try:
+            name = xml.getElementsByTagName('conformed-name')[0]
+            self.meta['name'] = name.firstChild.nodeValue.upper()
+        except IndexError:
+            return
+
+        self.cik = xml.getElementsByTagName('cik')[0].firstChild.nodeValue
+
+        # Thanks to https://github.com/fernavid/
+        docs_list = xml.getElementsByTagName('entry')
+        for doc in docs_list:
+            try:
+                doc.getElementsByTagName('content')[0]
+                doc.getElementsByTagName('xbrl_href')[0]
+                
+            except IndexError:
+                continue
+
+            f_url = doc.getElementsByTagName('filing-href')[0].firstChild.nodeValue
+            f_date = doc.getElementsByTagName('filing-date')[0].firstChild.nodeValue
+            f_type = doc.getElementsByTagName('filing-type')[0].firstChild.nodeValue
+            f_data = (f_date, f_type)
+
+            source = urllib2.urlopen(f_url).read()
+            xml_slug = re.findall(r'{}.*?\.xml'.format(DATA_PATH), source)[0]
+            f_data += ("{}{}".format(ROOT, xml_slug),)
+            
+            self.filings_list.append(f_data)
+
     def dump(self):
 
         with open(self.filename, 'w') as f:
@@ -278,7 +250,9 @@ class Company:
         self.metrics['revenue_totals'] = map(lambda l: sum(filter(None, l)), self.metrics['revenues'])
         self.to_array('eps', self.hist_fields('EarningsPerShare'))
         self.metrics['eps_totals'] = map(lambda l: sum(filter(None, l)), self.metrics['eps'])
-        self.to_array('filedates', self.meta['filing_dates'])
+        
+        self.to_array('filedates', self.meta['filing_dates']) # [(asof, fdate), ...]
+        
         self.metrics['unit'] = self.get_unit()
         self.metrics['revenue_totals'] = map(self.fmt_val, self.metrics['revenue_totals'])
         self.metrics['revenues'] = [map(self.fmt_val, items) for items in self.metrics['revenues']]
@@ -372,16 +346,17 @@ class Company:
 
         return output
 
-    def to_datetime(self, xbrl_date):
+    def per_to_delta(self, period):
+        """ Takes end_date, start_date list or tuple and returns end_date, 
+        delta (# days) tuple """
 
-        return datetime.datetime.strptime(xbrl_date, '%Y-%m-%d')
-
-    def get_delta(self, period):
-
-        period = map(self.to_datetime, period)
+        fmt = '%Y-%m-%d'
+        
+        end_date = period[0]
+        period = map(lambda x: datetime.datetime.strptime(x, fmt), period)
         delta = reduce(lambda x, y: x - y, period).days
-
-        return delta
+        
+        return end_date, delta
 
     def hist_fields(self, query):
         """ Returns the 0th field entry stored at query key in each filing.
@@ -399,38 +374,41 @@ class Company:
             ending on latest date.
         """
 
-        # TODO: check that this is always the case for average terms:
-        average = 'average' in query.lower()
+        
+        
 
         filings_items = sorted(self.filings.items(), reverse=True)
-        results = [val[query][0] for key, val in filings_items]
-        
-        values = [el[1] for el in results]
+        fields = [val[query][0] for key, val in filings_items]
+        fields = [list(self.per_to_delta(el[0])) + [el[1]] for el in fields]
+            
+        # X----
+        #values = [el[1] for el in results]
+        #periods = [el[0] for el in results]
+        #end_dates = [el[0] for el in periods]
+        #deltas = [self.get_delta(el) for el in periods]
+        # ----X
 
-        periods = [el[0] for el in results]
-        end_dates = [el[0] for el in periods]
+        # ??: Always the case for average terms?
+        average = 'average' in query.lower()
+        self.quarterize(fields, average=average)
 
-        deltas = [self.get_delta(el) for el in periods]
+        # X----
+        #fields = list(end_dates, deltas, values)
+        # ----X
+        self.truncate_hist(fields)
 
-        values, deltas = self.quarterize(values, deltas, average=average)
 
-        results = self.truncate_hist(end_dates, deltas, values)
+        return fields
 
-        return results
-
-    def truncate_hist(self, end_dates, deltas, values):
+    def truncate_hist(self, fields):
         """ Truncates from first period longer than 100 days """
 
-        for i in range(len(deltas)):
-            if deltas[i] > 100:
-                end_dates = end_dates[:i]
-                deltas = deltas[:i]
-                values = values[:i]
+        for i in xrange(len(fields)):
+            if fields[i][1] > 100:
+                fields = fields[:i]
                 break
 
-        return zip(end_dates, deltas, values)
-
-    def quarterize(self, values, deltas, average):
+    def quarterize(self, fields, average):
         """ Converts non-quarterly periods to quarterly
         Assumption is that previous periods are continuous with no jumps:
         e.g. 12-month data would be preceded by quarterly, 6 month or 9 month data
@@ -449,24 +427,23 @@ class Company:
                 while periods[j][1] >= periods[i][1]:
                     values[i] -= values[j]
         """
-        size = len(deltas)
+        #size = len(deltas)
+        size = len(fields)
         for i in xrange(size - 1):
-            if deltas[i]:
+            if fields[i][1]: # delta
                 if average:
-                    product = values[i] * deltas[i] 
+                    # normalize weighted average (value * #days)
+                    product = fields[i][-1] * fields[i][1]
                 j = i + 1
                 # 65 used so that three 100-day quarters could be subtracted
-                # Not sure if this is the right way to go
-                while j < size and deltas[i] - deltas[j] > 65:
+                while j < size and fields[i][1] - fields[j][1] > 65:
+                    fields[i][1] -= fields[j][1] # adjust delta
                     if average:
-                        deltas[i] -= deltas[j]
-                        product -= values[j] * deltas[j]
+                        product -= fields[j][-1] * fields[j][1] # adjust product
                     else:
-                        deltas[i] -= deltas[j]
-                        values[i] -= values[j]
+                        fields[i][-1] -= fields[j][-1] # adjust value
                     j += 1
                 if average:
-                    values[i] = product / deltas[i]
-
-        return values, deltas
+                    # de-normalize weighted average (value / #days)
+                    fields[i][-1] = product / fields[i][1] # product / delta
 

@@ -177,7 +177,7 @@ class CompanyResults(Handler):
         company = memcache.get(ticker)
 
         if not company:
-            co = fins.Company(ticker, disk=None)
+            co = fins.Company(ticker)
             co.get_metrics()
             company=dict(meta=co.meta, prices=co.prices, metrics=co.metrics)
             
