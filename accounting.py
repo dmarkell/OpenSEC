@@ -66,7 +66,8 @@ class AccountingFields:
 
         self.filing.fields['SharesOutstanding'] = self.filing.name_matches('CommonStockSharesOutstanding')
         if not self.filing.fields['SharesOutstanding']:
-            self.filing.fields['SharesOutstanding'] = self.filing.name_matches('EntityCommonStockSharesOutstanding', non_core=True)
+            # Below need to be non-core?
+            self.filing.fields['SharesOutstanding'] = self.filing.name_matches('EntityCommonStockSharesOutstanding')
 
         #Assets
         self.filing.fields['Assets'] = self.filing.name_matches("Assets")
@@ -249,7 +250,10 @@ class AccountingFields:
                                                 if not self.filing.fields['Revenues']:
                                                     self.filing.fields['Revenues'] = self.filing.name_matches("RegulatedAndUnregulatedOperatingRevenue")
                                                     if not self.filing.fields['Revenues']:
-                                                        self.filing.fields['Revenues'] = self.filing.name_matches("TotalRevenuesAndOtherIncome", non_core=True)
+                                                        # non_core?
+                                                        self.filing.fields['Revenues'] = self.filing.name_matches("TotalRevenuesAndOtherIncome")
+                                                        if not self.filing.fields['Revenues']:
+                                                            self.filing.fields['Revenues'] = self.filing.name_matches("RevenuesNet")
 
         #CostOfRevenue
         self.filing.fields['CostOfRevenue'] = self.filing.name_matches("CostOfRevenue")
@@ -524,7 +528,7 @@ class AccountingFields:
         # Tries non-core nodes if WAV not present in core tables
         self.filing.fields['WeightedAverageDilutedShares'] = self.collapse(self.filing.name_matches('WeightedAverageNumberOfDilutedSharesOutstanding'))
         if not self.filing.fields['WeightedAverageDilutedShares']:
-            self.filing.fields['WeightedAverageDilutedShares'] = self.collapse(self.filing.name_matches('WeightedAverageNumberOfDilutedSharesOutstanding', non_core=True))
+            self.filing.fields['WeightedAverageDilutedShares'] = self.collapse(self.filing.name_matches('WeightedAverageNumberOfDilutedSharesOutstanding'))
             if not self.filing.fields['WeightedAverageDilutedShares']:
                 self.filing.fields['WeightedAverageDilutedShares'] = self.collapse(self.filing.name_matches('WeightedAverageNumberBasicDilutedSharesOutstanding'))
                 if not self.filing.fields['WeightedAverageDilutedShares']:
