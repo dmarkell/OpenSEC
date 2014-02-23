@@ -1,5 +1,6 @@
 from accounting import AccountingFields
 import datetime
+import htmlentitydefs
 import json
 import logging
 import os
@@ -14,18 +15,41 @@ ROOT = "http://www.sec.gov/"
 SEARCH_PATH = "cgi-bin/browse-edgar/?"
 DATA_PATH = "Archives/edgar/data/"
 
+# simplified version of http://effbot.org/zone/re-sub.htm#unescape-html
+def unescape(text):
+    def fixup(m):
+        old = m.groups(0)[0]
+        new = htmlentitydefs.entitydefs[old]
+        return new
+    return re.sub("&(\w+);", fixup, text)
+
 
 class Filing:
 
-    def __init__(self, xbrl, schema):
+    def __init__(self, url):
 
-        self.schema = schema
-        
+        try:
+            _file = urllib2.urlopen(url)
+        except:
+            logging.error("Error opening url!")
+            return None
+
+        try:
+            self.xml = minidom.parse(_file)
+        except:
+            logging.error("Error parsing!")
+            return None
+
+        self.schema = Schema(self.xml)
+
+        xbrl = filter(lambda x: x.nodeType == 1, self.xml.childNodes)[0]
+
         instances = filter(self.is_instance, xbrl.childNodes)
         # Should this be done only as needed?
         self.instances = map(self.account_map, instances) #!!
         self.core_instances = filter(self.is_core, self.instances)
         AccountingFields(self)
+        self.fields['asof'] = self.tag_content('dei:DocumentPeriodEndDate')
 
     def is_instance(self, node):
 
@@ -39,6 +63,15 @@ class Filing:
             return False
         else:
             return True
+
+    def tag_content(self, tag_name):
+
+        contents = None
+        nodes = self.xml.getElementsByTagName(tag_name)
+        if nodes:
+            contents = nodes[0].firstChild.nodeValue
+
+        return contents
 
     def is_core(self, node):
         """Filter function, True if node's context_ref is core """
@@ -85,7 +118,6 @@ class Filing:
         matches = sorted(matches, key=lambda x: x[1], reverse=True)
         
         return matches
-
 
 class Schema:
 
@@ -138,7 +170,6 @@ class Schema:
 
         return context_ref, tuple(period), core
 
-
 class Company:
 
     def __init__(self, ticker):
@@ -147,44 +178,19 @@ class Company:
         self.meta = dict(ticker=ticker.upper(), filing_dates=[])
         self.filings = dict() # all fields found by AccountingFields
         self.prices = dict() # TODO: This will contain Yahoo! dataframe
-        
         self.get_filings()
+
 
     def get_filings(self):
 
         if not self.filings_list:
             self.get_filings_list()
 
-        for fdate, ftype, furl in self.filings_list:
-
-            filing = self.get_filing(furl)
+        for fdate, furl in self.filings_list:
             key = "{}|{}".format(fdate, furl)
+            filing = Filing(furl)
             self.filings[key] = filing.fields
-
-    def get_filing(self, url):
-
-        try:
-            _file = urllib2.urlopen(url)
-        except:
-            logging.error("Error opening url!")
-            return None
-
-        try:
-            xml = minidom.parse(_file)
-        except:
-            logging.error("Error parsing!")
-            return None
-
-        schema = Schema(xml)
-        xbrl = filter(lambda x: x.nodeType == 1, xml.childNodes)[0]
-        ticker = self.meta['ticker']
-        filer_ns = xbrl.attributes['xmlns:' + ticker.lower()].nodeValue
-        asof = filer_ns.split('/')[-1]
-        asof = "{}-{}-{}".format(asof[:4], asof[4:6], asof[6:])
-        filing = Filing(xbrl, schema)
-        filing.fields['asof'] = asof
-
-        return filing
+            self.meta['filing_dates'].append((filing.fields['asof'], fdate))
 
     def get_filings_list(self):
 
@@ -196,13 +202,10 @@ class Company:
         url = "{}{}{}".format(ROOT, SEARCH_PATH, params)
         xml = minidom.parse(urllib2.urlopen(url))
 
-        try:
-            name = xml.getElementsByTagName('conformed-name')[0]
-            self.meta['name'] = name.firstChild.nodeValue.upper()
-        except IndexError:
-            return
-
-        self.cik = xml.getElementsByTagName('cik')[0].firstChild.nodeValue
+        name = xml.getElementsByTagName('conformed-name')[0]
+        name = unescape(name.firstChild.nodeValue).upper()
+        self.meta['name'] = name
+        self.meta['cik'] = xml.getElementsByTagName('cik')[0].firstChild.nodeValue
 
         # Thanks to https://github.com/fernavid/
         docs_list = xml.getElementsByTagName('entry')
@@ -214,16 +217,14 @@ class Company:
             except IndexError:
                 continue
 
-            f_url = doc.getElementsByTagName('filing-href')[0].firstChild.nodeValue
+            ix_url = doc.getElementsByTagName('filing-href')[0].firstChild.nodeValue
             f_date = doc.getElementsByTagName('filing-date')[0].firstChild.nodeValue
-            f_type = doc.getElementsByTagName('filing-type')[0].firstChild.nodeValue
-            f_data = (f_date, f_type)
 
-            source = urllib2.urlopen(f_url).read()
-            xml_slug = re.findall(r'{}.*?\.xml'.format(DATA_PATH), source)[0]
-            f_data += ("{}{}".format(ROOT, xml_slug),)
+            source = urllib2.urlopen(ix_url).read()
+            xml_slug = re.findall(r'{}.*?\d{{8}}\.xml'.format(DATA_PATH), source)[0]
+            f_url = "{}{}".format(ROOT, xml_slug)
             
-            self.filings_list.append(f_data)
+            self.filings_list.append((f_date, f_url))
 
     def dump(self):
 
@@ -251,13 +252,13 @@ class Company:
         self.to_array('eps', self.hist_fields('EarningsPerShare'))
         self.metrics['eps_totals'] = map(lambda l: sum(filter(None, l)), self.metrics['eps'])
         
-        self.to_array('filedates', self.meta['filing_dates']) # [(asof, fdate), ...]
+        self.to_array('filedates', self.meta['filing_dates'])
         
         self.metrics['unit'] = self.get_unit()
         self.metrics['revenue_totals'] = map(self.fmt_val, self.metrics['revenue_totals'])
         self.metrics['revenues'] = [map(self.fmt_val, items) for items in self.metrics['revenues']]
         shares_out = self.hist_fields('SharesOutstanding')[0][-1]
-        self.metrics['shs'] = self.fmt_shs(shares_out)
+        self.metrics['shs'] = self.fmt_val(shares_out)
         self.metrics['eps_totals'] = map(self.fmt_per_sh, self.metrics['eps_totals'])
         self.metrics['eps'] = [map(self.fmt_per_sh, items) for items in self.metrics['eps']]
 
@@ -269,12 +270,6 @@ class Company:
         unit = self.metrics['unit'][0]
 
         return value and "{:,.1f}".format(1. * value / unit)
-
-    def fmt_shs(self, value):
-
-        unit = self.metrics['unit'][0]
-
-        return value and "{:,.3f}".format(1. * value / unit)
 
     def fmt_per_sh(self, value):
 

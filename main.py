@@ -189,7 +189,7 @@ class CompanyResults(Handler):
 
 app = webapp2.WSGIApplication(
     [
-    ('/company/(.+)', CompanyResults),
+    ('/(\D+)', CompanyResults),
     ('/?.*', Search)
     ], debug=True)
 
