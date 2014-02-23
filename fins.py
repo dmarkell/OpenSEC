@@ -23,33 +23,35 @@ def unescape(text):
         return new
     return re.sub("&(\w+);", fixup, text)
 
-
 class Filing:
 
     def __init__(self, url):
 
-        try:
-            _file = urllib2.urlopen(url)
-        except:
-            logging.error("Error opening url!")
-            return None
+        print url
+        top_start = time.time()
+        start = time.time()
+        print "\t-retrieving:",
+        _file = urllib2.urlopen(url)
+        print " {} seconds".format(time.time() - start)
 
-        try:
-            self.xml = minidom.parse(_file)
-        except:
-            logging.error("Error parsing!")
-            return None
+        start = time.time()
+        print "\t-parsing:",
+        self.xml = minidom.parse(_file)
+        print " {} seconds".format(time.time() - start)
 
-        self.schema = Schema(self.xml)
-
+        start = time.time()
+        print "\t-running script:",
+        self.get_schema()
         xbrl = filter(lambda x: x.nodeType == 1, self.xml.childNodes)[0]
-
         instances = filter(self.is_instance, xbrl.childNodes)
         # Should this be done only as needed?
         self.instances = map(self.account_map, instances) #!!
         self.core_instances = filter(self.is_core, self.instances)
         AccountingFields(self)
+
         self.fields['asof'] = self.tag_content('dei:DocumentPeriodEndDate')
+        print " {} seconds".format(time.time() - start)
+        print "Total: {} seconds".format(time.time() - top_start)
 
     def is_instance(self, node):
 
@@ -78,13 +80,13 @@ class Filing:
 
         # Contexts are already mapped in self.instances
         context_ref = node[-1]
-        return  context_ref in self.schema.core_keys
+        return  context_ref in self.core_keys
 
     def account_map(self, node):
         value = float(node.firstChild.nodeValue)
         name = node.tagName.split(":", 1)[1]
         context_ref = node.attributes['contextRef'].nodeValue
-        period = self.schema.contexts[context_ref]
+        period = self.contexts[context_ref]
        
         # This is useful for showing how it appears in the html, but not needed
         decimals = node.attributes['decimals'].nodeValue
@@ -119,31 +121,16 @@ class Filing:
         
         return matches
 
-class Schema:
+    def get_schema(self):
 
-    def __init__(self, xml):
-        self.xml = xml
-        contexts = xml.getElementsByTagName("xbrli:context")
-        if contexts:
-            self.pre = "xbrli:"
-        else:
-            self.pre = ""
-            contexts = xml.getElementsByTagName("context")
+        contexts = self.xml.getElementsByTagNameNS("*", "context")
         contexts_detail = map(self.context_map, contexts)
-        core = filter(lambda x: x[-1], contexts_detail)
-        self.core_keys = map(lambda x: x[0], core)
-
         # May be a lot slower to map for all contexts--consider doing this step
         # only on demand as needed (i.e. if looking for non-core nodes)
         self.contexts = dict(map(lambda x: x[:-1], contexts_detail))
-    
-    def is_core(self, node):# Not used
-        """ Returns True if context is core (has no 'segment' tag).
-        NOTES:
-            - Most gaap data will come from core nodes so these are separated
-        """
-        seg_tag = "{}segment".format(self.pre)
-        return not node.getElementsByTagName(seg_tag)
+        
+        core = filter(lambda x: x[-1], contexts_detail)
+        self.core_keys = map(lambda x: x[0], core)
 
     def node_content(self, nodes):
 
@@ -158,17 +145,19 @@ class Schema:
 
         # Core nodes have no 'segment' tag -- these are separte since most gaap
         # data comes from these
-        core = not context.getElementsByTagName("{}segment".format(self.pre))
+        core = not context.getElementsByTagNameNS("*", "segment")
         context_ref = context.attributes['id'].firstChild.nodeValue
-        instant = context.getElementsByTagName("{}instant".format(self.pre))
+        instant = context.getElementsByTagNameNS("*", "instant")
         if instant:
             period = [self.node_content(instant) for i in xrange(2)]
         else:
-            start = context.getElementsByTagName("{}startDate".format(self.pre))
-            end = context.getElementsByTagName("{}endDate".format(self.pre))
+            start = context.getElementsByTagNameNS("*", "startDate")
+            end = context.getElementsByTagNameNS("*", "endDate")
             period = map(self.node_content, (end, start))
 
         return context_ref, tuple(period), core
+
+    
 
 class Company:
 
@@ -179,7 +168,6 @@ class Company:
         self.filings = dict() # all fields found by AccountingFields
         self.prices = dict() # TODO: This will contain Yahoo! dataframe
         self.get_filings()
-
 
     def get_filings(self):
 
@@ -197,10 +185,18 @@ class Company:
         params = dict(action="getcompany", count=100, output='atom')
         params['ticker']= self.meta['ticker']
         params['type'] = '10-'
-    
+        
         params = urllib.urlencode(params)
         url = "{}{}{}".format(ROOT, SEARCH_PATH, params)
-        xml = minidom.parse(urllib2.urlopen(url))
+        print url
+        start = time.time()
+        print "\t-Retrieving:",
+        _file = urllib2.urlopen(url)
+        print "... {} seconds".format(time.time() - start)
+        start = time.time()
+        print "\t-Parsing:",
+        xml = minidom.parse(_file)
+        print " {} seconds".format(time.time() - start)
 
         name = xml.getElementsByTagName('conformed-name')[0]
         name = unescape(name.firstChild.nodeValue).upper()
@@ -220,7 +216,13 @@ class Company:
             ix_url = doc.getElementsByTagName('filing-href')[0].firstChild.nodeValue
             f_date = doc.getElementsByTagName('filing-date')[0].firstChild.nodeValue
 
-            source = urllib2.urlopen(ix_url).read()
+            print url
+            start = time.time()
+            print "\t-Retrieving:",
+            _file = urllib2.urlopen(ix_url)
+            print " {} seconds".format(time.time() - start)
+            source = _file.read()
+
             xml_slug = re.findall(r'{}.*?\d{{8}}\.xml'.format(DATA_PATH), source)[0]
             f_url = "{}{}".format(ROOT, xml_slug)
             

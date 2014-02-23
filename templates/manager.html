@@ -5,7 +5,7 @@
     <caption>
         <div class="top">{{manager_full}}</div>
         <div class="bottom">
-            <a href={{filing.url}}>
+            <a href={{filing.url}} target="_blank">
                 {{filing.meta['asof']}} 13F Filing
             </a>
         </div>
@@ -28,7 +28,7 @@
             <td class="issuer text-left">
                 <div class="outer">
                     <div class="inner">
-                        <a href="http://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&count=100&CIK=&type=10-&ticker={{row[2]}}">
+                        <a target="_blank" href="http://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&count=100&CIK=&type=10-&ticker={{row[2]}}">
                             {{row[0]}}
                         </a>
                     </div>
@@ -36,7 +36,7 @@
             </td>
             
             <td class="ticker text-center">
-                <a href="/company/{{row[2]}}">
+                <a target="_blank" href="/{{row[2]}}">
                     {{row[2]}}
                 </a>
             </td>
