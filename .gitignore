@@ -2,3 +2,5 @@ test/*
 *.pyc
 *.db
 dumps/
+stacko/
+files/
