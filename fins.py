@@ -27,140 +27,167 @@ def unescape(text):
 class Filing:
 
     def __init__(self, url):
+        
+        self.ACCOUNTING_FIELDS = [
+            ('Revenues', (
+                "Revenues", "SalesRevenueNet", "SalesRevenueServicesNet", 
+                "RevenuesNetOfInterestExpense", "TotalRevenuesAndOtherIncome",
+                "RevenuesNet"), None),
+            ('WeightedAverageDilutedShares', (
+                'WeightedAverageNumberOfDilutedSharesOutstanding',
+                'WeightedAverageNumberOfDilutedSharesOutstanding',
+                'WeightedAverageNumberBasicDilutedSharesOutstanding',
+                'WeightedAverageNumberBasicDilutedSharesOutstanding'),
+                self.collapse),
+            ('EarningsPerShare', (
+                'EarningsPerShareDiluted', 'EarningsPerShareBasicAndDiluted',
+                'BasicDilutedEarningsPerShareNetIncome',
+                'BasicAndDilutedLossPerShare'), None),
+            ('NetIncomeLoss', (
+                'ProfitLoss', 'NetIncomeLoss',
+                'NetIncomeLossAvailableToCommonStockholdersBasic',
+                'IncomeLossFromContinuingOperations',
+                'IncomeLossAttributableToParent', 'IncomeLossFromContinuingOperationsIncludingPortionAttributableToNoncontrollingInterest'),
+                None)
+        ]
 
-        self._load(url)
-        
-        self.get_schema()
-        self.get_instances()
-        
-        AccountingFields(self)
-        self.fields['asof'] = self.node_content(self.xmldoc, 'DocumentPeriodEndDate')
+        self._load_root(url)
+        self.get_instances()        
+        self.get_fields()
+        # needs to be fixed:
+        self.fields['asof'] = '2013-06-30'
+
+
+    def _load_root(self, url):
+
+        filename = url.split("/")[-1]
+        try:
+            with open("./files/{}".format(filename), 'r') as f:
+                root = ET.parse(f).getroot()
+                
+        except IOError:
+            print "Parsing...",
+            start = time.time()
+            root = ET.parse(urllib2.urlopen(url)).getroot()
+            print "{} seconds".format(time.time() - start)
+
+            with open("./files/{}".format(filename), 'w') as f:
+                f.write(ET.tostring(root))
+
+        self.root = root
+
+    def get_fields(self):
+
+        self.fields = {}
+
+        for field, queries, callback in self.ACCOUNTING_FIELDS:
+            i = 0
+            matches = self.name_matches(queries[i])
+            while i < len(queries) - 1 and not matches:
+                i += 1
+                matches = self.name_matches(queries[i])
+                if callback:
+                    matches = callback(matches)
+
+            self.fields[field] = matches
+
+    def collapse(self, fields):
+        """ Adds values of fields fields with same period
+        INPUTS: Fields, list of (period, value) tuples
+        OUTPUTS: list of (period, value) tuples
+        """
+
+        periods = list(set(map(lambda x: x[0], fields)))
+        results = []
+        for period in periods:
+            values = [el[1] for el in fields if el[0] == period]
+            total = sum(values)
+            results.append((period, total))
+
+        return sorted(results, reverse=True) 
+
+    def impute(self, sign, field1, field2, func=None):
+        """ Adds or subtracts corresponding periods, disregarding periods not
+        appearing in both fields.
+        INPUTS:
+            - Field1 and Field2 are (period, value) tuples.
+            - Fields' periods are (end_date, start_date) tuples.
+            - Applies function 'func' if provided, otherwise adds if sign == 1
+              and subtracts if sign == -1
+        OUTPUT:
+            - List of (period, value) tuples where values are the sum (diff)
+              of the corresponding period input values
+        """
+
+        if not func:
+            func = lambda x, y: x + sign * y
+
+        periods = list(set(map(lambda x: x[0], field1 + field2)))
+        output = []
+        for period in periods:
+            first = filter(lambda x: x[0] == period, field1)
+            if len(first) == 1:
+                second = filter(lambda x: x[0] == period, field2)
+                if len(second) == 1:
+                    output.append((period, func(first[0][-1], second[0][-1])))
+
+        return output
 
     def get_instances(self):
+
+        """ ET root as input
+        Returns list of ('name', 'period', 'value', 'segment') tuples"""
+
+        self.instances = []
         
-        instances = filter(self.is_instance, self.xmldoc.childNodes)
-        self.instances = map(self.account_map, instances) #!!
-        self.core_instances = filter(self.is_core, self.instances)
+        # All nodes with unitRef
+        nodes = self.root.findall("*[@unitRef]")
 
-    def _load(self, source):
+        for node in nodes:
 
-        print 'getting filing...',
-        start =  time.time()
-        _file = urllib2.urlopen(source)
-        print "{} seconds".format(time.time() - start)
-        
-        print 'parsing...',
-        start = time.time()
-        self.xmldoc = minidom.parse(_file).documentElement
-        print "{} seconds".format(time.time() - start)
+            # Get name and value from tag name and inner text contents
+            name, value = node.tag.split('}')[-1], node.text
+            # Initialize period to empty list and segment to empty string
+            period, segment = [], ''
+            
+            # Get period and segment (if any) from context
+            context = self.root.find("*[@id='{}']".format(node.attrib['contextRef']))
+            
+            for el in context.iter():
+            
+                if el.tag.endswith("explicitMember"):
+                    segment = el.text
+                if el.tag.endswith("instant"):
+                    period = [el.text, el.text]
+                if el.tag.endswith("startDate"):
+                    period.append(el.text)
+                if el.tag.endswith("endDate"):
+                    period.append(el.text)
+            
+            
+            period = tuple(period)
 
-    def is_instance(self, node):
+            self.instances.append((name, period, value, segment))
 
-        if node.nodeType <> 1:
-            return False
-        elif not node.childNodes:
-            return False
-        elif not node.attributes:
-            return False
-        elif not node.attributes.has_key('unitRef'):
-            return False
-        else:
-            return True
-
-    def tag_content(self, tag_name):
-
-        contents = None
-        nodes = self.xmldoc.getElementsByTagNameNS("*", tag_name)
-        if nodes:
-            contents = nodes[0].firstChild.nodeValue
-
-        return contents
-
-    def is_core(self, node):
-        """Filter function, True if node's context_ref is core """
-
-        # Contexts are already mapped in self.instances
-        context_ref = node[-1]
-        return  context_ref in self.core_keys
-
-    def account_map(self, node):
-        value = float(node.firstChild.nodeValue)
-        name = node.tagName.split(":", 1)[1]
-        context_ref = node.attributes['contextRef'].nodeValue
-        period = self.contexts[context_ref]
-       
-        # This is useful for showing how it appears in the html, but not needed
-        decimals = node.attributes['decimals'].nodeValue
-
-        return name, period, decimals, value, context_ref
 
     def name_matches(self, query, non_core=False):
  
         regexp = "^{}$".format(query)
-        results = self.attr_matches('name', regexp, non_core=non_core)
-        matches = [(el[1], el[3]) for el in results]
-
-        return matches
-
-    def attr_matches(self, attr, regexp, non_core=False):
-        """ Returns list of instances whose attributes attr match
-            regular expression regexp.
-            Input: Attribute ('name', 'value', 'period') and regexp string
-            to match instance names against.
-            Output: List of instances, sorted descending by date (start date, end date)
-            Notes: 'period' is a tuple of dates so this is converted to a string in form
-            "('YYYY-MM-DD', 'YYYY-MM-DD')" for matching
-        """
-        attrs = ('name', 'period', 'decimals', 'value', 'context_ref')
-        ix = attrs.index(attr)
         p = re.compile(regexp)
-        if non_core:
-            matches = filter(lambda x: p.match(str(x[ix])), self.instances)
-        else:
-            matches = filter(lambda x: p.match(str(x[ix])), self.core_instances)
-        matches = sorted(matches, key=lambda x: x[1], reverse=True)
-        
-        return matches
 
-    def get_schema(self):
+        matches = filter(lambda x: p.match(str(x[0])), self.instances)
+        if not non_core:
+            matches = filter(lambda x: not x[-1], matches)
 
-        contexts = self.xmldoc.getElementsByTagNameNS("*", "context")
-        contexts_detail = map(self.context_map, contexts)
-        # May be a lot slower to map for all contexts--consider doing this step
-        # only on demand as needed (i.e. if looking for non-core nodes)
-        self.contexts = dict(map(lambda x: x[:-1], contexts_detail))
-        core = filter(lambda x: x[-1], contexts_detail)
-        self.core_keys = map(lambda x: x[0], core)
+        results = [el[1:3] for el in matches]
 
-    def node_content(self, root, name):
+        return results
 
-        nodes = root.getElementsByTagNameNS("*", name)
-        content = None
-        if nodes:
-            content = nodes[0].firstChild.nodeValue
-            if content:
-                content = content.strip()
+    def accounting_adj(self):
+        """Clean ups to accounting fields after all other attempts finished"""
+        # If wav shares above didn't work, impute NIL and EPS
+        self.fields['WeightedAverageDilutedShares'] = self.impute(1, self.fields['NetIncomeLoss'], self.fields['EarningsPerShare'], func=self.divide)
 
-        return content
-
-    # This also checks whether context is core
-    def context_map(self, context):
-
-        # Core nodes have no 'segment' tag -- these are separte since most gaap
-        # data comes from these
-        core = not self.node_content(context, "segment")
-        context_ref = context.attributes['id'].firstChild.nodeValue
-        instant = self.node_content(context, "instant")
-        if instant:
-            period = [instant, instant]
-        else:
-            start = self.node_content(context, "startDate")
-            end = self.node_content(context, "endDate")
-            period = [end, start]
-
-        return context_ref, tuple(period), core
-
-    
 
 class Company:
 
@@ -469,4 +496,3 @@ class Company:
                 if average:
                     # de-normalize weighted average (value / #days)
                     fields[i][-1] = product / fields[i][1] # product / delta
-

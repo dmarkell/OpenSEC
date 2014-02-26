@@ -33,12 +33,11 @@ class Filing:
         ]
 
         self._load_root(url)
-        
-        self.get_instances()
-        
+        self.get_instances()        
         self.get_fields()
+        # needs to be fixed:
+        self.fields['asof'] = '2013-06-30'
 
-        pprint(self.fields)
 
     def _load_root(self, url):
 
@@ -171,7 +170,7 @@ class Filing:
         self.fields['WeightedAverageDilutedShares'] = self.impute(1, self.fields['NetIncomeLoss'], self.fields['EarningsPerShare'], func=self.divide)
 
 url = 'http://www.sec.gov/Archives/edgar/data/34088/000003408813000035/xom-20130630.xml'
-filing = Filing(url)
+#filing = Filing(url)
 
 
 
