@@ -10,6 +10,7 @@ import urllib
 import urllib2
 from xml.dom import minidom
 
+
 # CONSTANTS
 ROOT = "http://www.sec.gov/"
 SEARCH_PATH = "cgi-bin/browse-edgar/?"
@@ -27,31 +28,31 @@ class Filing:
 
     def __init__(self, url):
 
-        print url
-        top_start = time.time()
-        start = time.time()
-        print "\t-retrieving:",
-        _file = urllib2.urlopen(url)
-        print " {} seconds".format(time.time() - start)
-
-        start = time.time()
-        print "\t-parsing:",
-        self.xml = minidom.parse(_file)
-        print " {} seconds".format(time.time() - start)
-
-        start = time.time()
-        print "\t-running script:",
+        self._load(url)
+        
         self.get_schema()
-        xbrl = filter(lambda x: x.nodeType == 1, self.xml.childNodes)[0]
-        instances = filter(self.is_instance, xbrl.childNodes)
-        # Should this be done only as needed?
+        self.get_instances()
+        
+        AccountingFields(self)
+        self.fields['asof'] = self.node_content(self.xmldoc, 'DocumentPeriodEndDate')
+
+    def get_instances(self):
+        
+        instances = filter(self.is_instance, self.xmldoc.childNodes)
         self.instances = map(self.account_map, instances) #!!
         self.core_instances = filter(self.is_core, self.instances)
-        AccountingFields(self)
 
-        self.fields['asof'] = self.tag_content('dei:DocumentPeriodEndDate')
-        print " {} seconds".format(time.time() - start)
-        print "Total: {} seconds".format(time.time() - top_start)
+    def _load(self, source):
+
+        print 'getting filing...',
+        start =  time.time()
+        _file = urllib2.urlopen(source)
+        print "{} seconds".format(time.time() - start)
+        
+        print 'parsing...',
+        start = time.time()
+        self.xmldoc = minidom.parse(_file).documentElement
+        print "{} seconds".format(time.time() - start)
 
     def is_instance(self, node):
 
@@ -69,7 +70,7 @@ class Filing:
     def tag_content(self, tag_name):
 
         contents = None
-        nodes = self.xml.getElementsByTagName(tag_name)
+        nodes = self.xmldoc.getElementsByTagNameNS("*", tag_name)
         if nodes:
             contents = nodes[0].firstChild.nodeValue
 
@@ -123,20 +124,22 @@ class Filing:
 
     def get_schema(self):
 
-        contexts = self.xml.getElementsByTagNameNS("*", "context")
+        contexts = self.xmldoc.getElementsByTagNameNS("*", "context")
         contexts_detail = map(self.context_map, contexts)
         # May be a lot slower to map for all contexts--consider doing this step
         # only on demand as needed (i.e. if looking for non-core nodes)
         self.contexts = dict(map(lambda x: x[:-1], contexts_detail))
-        
         core = filter(lambda x: x[-1], contexts_detail)
         self.core_keys = map(lambda x: x[0], core)
 
-    def node_content(self, nodes):
+    def node_content(self, root, name):
 
+        nodes = root.getElementsByTagNameNS("*", name)
         content = None
         if nodes:
-            content = nodes[0].firstChild.nodeValue.strip()
+            content = nodes[0].firstChild.nodeValue
+            if content:
+                content = content.strip()
 
         return content
 
@@ -145,15 +148,15 @@ class Filing:
 
         # Core nodes have no 'segment' tag -- these are separte since most gaap
         # data comes from these
-        core = not context.getElementsByTagNameNS("*", "segment")
+        core = not self.node_content(context, "segment")
         context_ref = context.attributes['id'].firstChild.nodeValue
-        instant = context.getElementsByTagNameNS("*", "instant")
+        instant = self.node_content(context, "instant")
         if instant:
-            period = [self.node_content(instant) for i in xrange(2)]
+            period = [instant, instant]
         else:
-            start = context.getElementsByTagNameNS("*", "startDate")
-            end = context.getElementsByTagNameNS("*", "endDate")
-            period = map(self.node_content, (end, start))
+            start = self.node_content(context, "startDate")
+            end = self.node_content(context, "endDate")
+            period = [end, start]
 
         return context_ref, tuple(period), core
 
@@ -171,6 +174,7 @@ class Company:
 
     def get_filings(self):
 
+        print 'getting filings...'
         if not self.filings_list:
             self.get_filings_list()
 
@@ -184,49 +188,48 @@ class Company:
 
         params = dict(action="getcompany", count=100, output='atom')
         params['ticker']= self.meta['ticker']
-        params['type'] = '10-'
         
-        params = urllib.urlencode(params)
-        url = "{}{}{}".format(ROOT, SEARCH_PATH, params)
-        print url
-        start = time.time()
-        print "\t-Retrieving:",
-        _file = urllib2.urlopen(url)
-        print "... {} seconds".format(time.time() - start)
-        start = time.time()
-        print "\t-Parsing:",
-        xml = minidom.parse(_file)
-        print " {} seconds".format(time.time() - start)
-
-        name = xml.getElementsByTagName('conformed-name')[0]
-        name = unescape(name.firstChild.nodeValue).upper()
-        self.meta['name'] = name
-        self.meta['cik'] = xml.getElementsByTagName('cik')[0].firstChild.nodeValue
-
-        # Thanks to https://github.com/fernavid/
-        docs_list = xml.getElementsByTagName('entry')
-        for doc in docs_list:
-            try:
-                doc.getElementsByTagName('content')[0]
-                doc.getElementsByTagName('xbrl_href')[0]
-                
-            except IndexError:
-                continue
-
-            ix_url = doc.getElementsByTagName('filing-href')[0].firstChild.nodeValue
-            f_date = doc.getElementsByTagName('filing-date')[0].firstChild.nodeValue
-
-            print url
-            start = time.time()
-            print "\t-Retrieving:",
-            _file = urllib2.urlopen(ix_url)
-            print " {} seconds".format(time.time() - start)
-            source = _file.read()
-
-            xml_slug = re.findall(r'{}.*?\d{{8}}\.xml'.format(DATA_PATH), source)[0]
-            f_url = "{}{}".format(ROOT, xml_slug)
+        for form in ['10-', '20-']:
+            params['type'] = form
+            enc_params = urllib.urlencode(params)
+            url = "{}{}{}".format(ROOT, SEARCH_PATH, enc_params)
             
-            self.filings_list.append((f_date, f_url))
+            _file = urllib2.urlopen(url)
+            
+            xml = minidom.parse(_file)
+            
+
+            name = xml.getElementsByTagName('conformed-name')[0]
+            name = unescape(name.firstChild.nodeValue).upper()
+            self.meta['name'] = name
+            self.meta['cik'] = xml.getElementsByTagName('cik')[0].firstChild.nodeValue
+
+            # Thanks to https://github.com/fernavid/
+            docs_list = xml.getElementsByTagName('entry')
+            start=  time.time()
+            for doc in docs_list:
+                try:
+                    doc.getElementsByTagName('content')[0]
+                    doc.getElementsByTagName('xbrl_href')[0]
+                    
+                except IndexError:
+                    continue
+
+                ix_url = doc.getElementsByTagName('filing-href')[0].firstChild.nodeValue
+                f_date = doc.getElementsByTagName('filing-date')[0].firstChild.nodeValue
+
+                
+                _file = urllib2.urlopen(ix_url)
+                
+                source = _file.read()
+
+                xml_slug = re.findall(r'{}.*?\d{{8}}\.xml'.format(DATA_PATH), source)[0]
+                f_url = "{}{}".format(ROOT, xml_slug)
+                
+                self.filings_list.append((f_date, f_url))
+
+            print "\t{} seconds.".format(time.time() - start)
+        
 
     def dump(self):
 
@@ -316,12 +319,13 @@ class Company:
 
         return numer / denom
 
+
     def impute(self, sign, field1, field2, func=None):
-        """ Adds or subtracts corresponding periods, disregarding periods not
-        appearing in both fields.
+        """ Adds or subtracts values at corresponding enddates, disregarding
+        enddates not occurring in both groups.
         INPUTS:
-            - Field1 and Field2 are (period, value) tuples.
-            - Fields' periods are (end_date, start_date) tuples.
+            - Field1 and Field2 are (enddate, delta, value) tuples.
+            - All inputs will be quarterized after the quarterize and truncate functions
             - Applies function 'func' if provided, otherwise adds if sign == 1
               and subtracts if sign == -1
         OUTPUT:
@@ -343,17 +347,54 @@ class Company:
 
         return output
 
+    def inc_days(self, date, num):
+
+        fmt = '%Y-%m-%d'
+        dt = datetime.datetime.strptime(date, fmt)
+        dt += datetime.timedelta(days=num)
+        date = dt.strftime(fmt)
+
+        return date
+
+    def impute_periods(self, fields):
+        imputed = []
+        for el in fields:
+            for other in fields:
+                # if same enddate and 'other' starts later, 'new' starts earlier
+                if other[0][0] == el[0][0] and other[0][1] > el[0][1]:
+                    new_end = self.inc_days(other[0][1], -1)
+                    new_start = el[0][1]
+                    new_value = el[1] - other[1]
+                    new = ((new_end, new_start), new_value)
+                    imputed.append(new)
+                # if same startdate and 'other' ends before, 'new' ends after
+                if other[0][1] == el[0][1] and other[0][0] < el[0][0]:
+                    new_end = el[0][0]
+                    new_start = self.inc_days(other[0][0], 1)
+                    new_value = el[1] - other[1]
+                    new = ((new_end, new_start), new_value)
+                    imputed.append(new)
+
+        return list(set(imputed))
+
     def per_to_delta(self, period):
         """ Takes end_date, start_date list or tuple and returns end_date, 
         delta (# days) tuple """
-
-        fmt = '%Y-%m-%d'
         
         end_date = period[0]
-        period = map(lambda x: datetime.datetime.strptime(x, fmt), period)
+        period = map(self.to_dt, period)
         delta = reduce(lambda x, y: x - y, period).days
         
         return end_date, delta
+
+    def all_fields(self, query):
+
+        fields = [value[query] for value in self.filings.values()]
+        fields = list(set([item for sublist in fields for item in sublist]))
+        imputeds = self.impute_periods(fields)
+        total = list(set(fields + imputeds))
+
+        return total
 
     def hist_fields(self, query):
         """ Returns the 0th field entry stored at query key in each filing.
@@ -371,29 +412,14 @@ class Company:
             ending on latest date.
         """
 
-        
-        
-
         filings_items = sorted(self.filings.items(), reverse=True)
         fields = [val[query][0] for key, val in filings_items]
         fields = [list(self.per_to_delta(el[0])) + [el[1]] for el in fields]
-            
-        # X----
-        #values = [el[1] for el in results]
-        #periods = [el[0] for el in results]
-        #end_dates = [el[0] for el in periods]
-        #deltas = [self.get_delta(el) for el in periods]
-        # ----X
 
         # ??: Always the case for average terms?
         average = 'average' in query.lower()
         self.quarterize(fields, average=average)
-
-        # X----
-        #fields = list(end_dates, deltas, values)
-        # ----X
         self.truncate_hist(fields)
-
 
         return fields
 
