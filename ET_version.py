@@ -13,31 +13,30 @@ class Filing:
             ('Revenues', (
                 "Revenues", "SalesRevenueNet", "SalesRevenueServicesNet", 
                 "RevenuesNetOfInterestExpense", "TotalRevenuesAndOtherIncome",
-                "RevenuesNet"), None),
+                "RevenuesNet"), None, False),
             ('WeightedAverageDilutedShares', (
                 'WeightedAverageNumberOfDilutedSharesOutstanding',
                 'WeightedAverageNumberOfDilutedSharesOutstanding',
                 'WeightedAverageNumberBasicDilutedSharesOutstanding',
                 'WeightedAverageNumberBasicDilutedSharesOutstanding'),
-                self.collapse),
+                self.collapse, False),
             ('EarningsPerShare', (
                 'EarningsPerShareDiluted', 'EarningsPerShareBasicAndDiluted',
                 'BasicDilutedEarningsPerShareNetIncome',
-                'BasicAndDilutedLossPerShare'), None),
+                'BasicAndDilutedLossPerShare'), None, False),
             ('NetIncomeLoss', (
                 'ProfitLoss', 'NetIncomeLoss',
                 'NetIncomeLossAvailableToCommonStockholdersBasic',
                 'IncomeLossFromContinuingOperations',
                 'IncomeLossAttributableToParent', 'IncomeLossFromContinuingOperationsIncludingPortionAttributableToNoncontrollingInterest'),
-                None)
+                None, False),
+            
         ]
 
         self._load_root(url)
+        self.fields = {}
         self.get_instances()        
         self.get_fields()
-        # needs to be fixed:
-        self.fields['asof'] = '2013-06-30'
-
 
     def _load_root(self, url):
 
@@ -59,14 +58,12 @@ class Filing:
 
     def get_fields(self):
 
-        self.fields = {}
-
-        for field, queries, callback in self.ACCOUNTING_FIELDS:
+        for field, queries, callback, non_core in self.ACCOUNTING_FIELDS:
             i = 0
-            matches = self.name_matches(queries[i])
+            matches = self.name_matches(queries[i], non_core=non_core)
             while i < len(queries) - 1 and not matches:
                 i += 1
-                matches = self.name_matches(queries[i])
+                matches = self.name_matches(queries[i], non_core=non_core)
                 if callback:
                     matches = callback(matches)
 
@@ -122,33 +119,34 @@ class Filing:
         self.instances = []
         
         # All nodes with unitRef
-        nodes = self.root.findall("*[@unitRef]")
+        for node in self.root.iter():
+            if node.tag.endswith('DocumentPeriodEndDate'):
+                self.fields['asof'] = node.text
+            elif node.attrib.has_key('unitRef'):
 
-        for node in nodes:
+                # Get name and value from tag name and inner text contents
+                name, value = node.tag.split('}')[-1], node.text
+                # Initialize period to empty list and segment to empty string
+                period, segment = [], ''
+                
+                # Get period and segment (if any) from context
+                context = self.root.find("*[@id='{}']".format(node.attrib['contextRef']))
+                
+                for el in context.iter():
+                
+                    if el.tag.endswith("explicitMember"):
+                        segment = el.text
+                    if el.tag.endswith("instant"):
+                        period = [el.text, el.text]
+                    if el.tag.endswith("startDate"):
+                        period.append(el.text)
+                    if el.tag.endswith("endDate"):
+                        period.append(el.text)
+                
+                
+                period = tuple(period)
 
-            # Get name and value from tag name and inner text contents
-            name, value = node.tag.split('}')[-1], node.text
-            # Initialize period to empty list and segment to empty string
-            period, segment = [], ''
-            
-            # Get period and segment (if any) from context
-            context = self.root.find("*[@id='{}']".format(node.attrib['contextRef']))
-            
-            for el in context.iter():
-            
-                if el.tag.endswith("explicitMember"):
-                    segment = el.text
-                if el.tag.endswith("instant"):
-                    period = [el.text, el.text]
-                if el.tag.endswith("startDate"):
-                    period.append(el.text)
-                if el.tag.endswith("endDate"):
-                    period.append(el.text)
-            
-            
-            period = tuple(period)
-
-            self.instances.append((name, period, value, segment))
+                self.instances.append((name, period, value, segment))
 
 
     def name_matches(self, query, non_core=False):
@@ -170,8 +168,10 @@ class Filing:
         self.fields['WeightedAverageDilutedShares'] = self.impute(1, self.fields['NetIncomeLoss'], self.fields['EarningsPerShare'], func=self.divide)
 
 url = 'http://www.sec.gov/Archives/edgar/data/34088/000003408813000035/xom-20130630.xml'
-#filing = Filing(url)
+filing = Filing(url)
 
+pprint(filing.fields)
+filing.name_matches('DocumentPeriodEndDate')
 
 
 
