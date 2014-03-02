@@ -1,4 +1,3 @@
-from accounting import AccountingFields
 import datetime
 import htmlentitydefs
 import json
@@ -9,7 +8,9 @@ import time
 import urllib
 import urllib2
 from xml.dom import minidom
+import xml.etree.ElementTree as ET
 
+#asof = 'DocumentPeriodEndDate'
 
 # CONSTANTS
 ROOT = "http://www.sec.gov/"
@@ -29,63 +30,86 @@ class Filing:
     def __init__(self, url):
         
         self.ACCOUNTING_FIELDS = [
+            ('SharesOutstanding', (
+                'CommonStockSharesOutstanding',
+                'EntityCommonStockSharesOutstanding'), None, True),
             ('Revenues', (
-                "Revenues", "SalesRevenueNet", "SalesRevenueServicesNet", 
-                "RevenuesNetOfInterestExpense", "TotalRevenuesAndOtherIncome",
-                "RevenuesNet"), None),
+                'Revenues', 'SalesRevenueNet', 'SalesRevenueServicesNet', 
+                'RevenuesNetOfInterestExpense', 'TotalRevenuesAndOtherIncome',
+                'RevenuesNet'), None, False),
             ('WeightedAverageDilutedShares', (
                 'WeightedAverageNumberOfDilutedSharesOutstanding',
                 'WeightedAverageNumberOfDilutedSharesOutstanding',
                 'WeightedAverageNumberBasicDilutedSharesOutstanding',
                 'WeightedAverageNumberBasicDilutedSharesOutstanding'),
-                self.collapse),
+                self.collapse, False),
             ('EarningsPerShare', (
                 'EarningsPerShareDiluted', 'EarningsPerShareBasicAndDiluted',
                 'BasicDilutedEarningsPerShareNetIncome',
-                'BasicAndDilutedLossPerShare'), None),
+                'BasicAndDilutedLossPerShare'), None, False),
             ('NetIncomeLoss', (
                 'ProfitLoss', 'NetIncomeLoss',
                 'NetIncomeLossAvailableToCommonStockholdersBasic',
                 'IncomeLossFromContinuingOperations',
                 'IncomeLossAttributableToParent', 'IncomeLossFromContinuingOperationsIncludingPortionAttributableToNoncontrollingInterest'),
-                None)
+                None, False),
+            ('Assets', ('Assets'), None, False),
+            ('CurrentAssets', ('AssetsCurrent'), None, False),
+            ('PPE', ('PropertyPlantAndEquipmentNet'), None, False),
+            ('Inventory', ('InventoryNet'), None, False),
+            ('AccountsReceivable', ('AccountsReceivableNetCurrent'), None, False),
+            ('Goodwill', ('Goodwill'), None, False),
+            ('IntangiblesExGoodwill',
+                ('IntangibleAssetsNetExcludingGoodwill'), None, False),
+            ('AccountsPayable',
+                ('AccountsPayableCurrent'), None, False),
+            ('CashAndCashEquivalents',
+                ('CashAndCashEquivalentsAtCarryingValue'), None, False),
+            ('LongTermDebtCurrent',
+                ('LongTermDebtCurrent'), None, False),
+            ('LongTermDebtNonCurrent',
+                ('LongTermDebtNoncurrent'), None, False),
+            ('OperatingLeasesOneYear',
+                ('OperatingLeasesFutureMinimumPaymentsDueInOneYear'), None, False),
+            ('OperatingLeasesTwoYear',
+                ('OperatingLeasesFutureMinimumPaymentsDueInTwoYears'), None, False),
+            ('OperatingLeasesThreeYear',
+                ('OperatingLeasesFutureMinimumPaymentsDueInThreeYears'), None, False),
+            ('OperatingLeasesFourYear',
+                ('OperatingLeasesFutureMinimumPaymentsDueInFourYears'), None, False),
+            ('OperatingLeasesFiveYear',
+                ('OperatingLeasesFutureMinimumPaymentsDueInFiveYears'), None, False),
+            ('OperatingLeasesLongTerm',
+                ('OperatingLeasesFutureMinimumPaymentsDueThereafter'), None, False),
+            ('ShortTermInvestments', ('ShortTermInvestments'), None, False),
+            ('LongTermInvestments', ('LongTermInvestments'), None, False)
         ]
 
         self._load_root(url)
+        self.fields = {}
         self.get_instances()        
         self.get_fields()
-        # needs to be fixed:
-        self.fields['asof'] = '2013-06-30'
 
 
     def _load_root(self, url):
 
-        filename = url.split("/")[-1]
-        try:
-            with open("./files/{}".format(filename), 'r') as f:
-                root = ET.parse(f).getroot()
-                
-        except IOError:
-            print "Parsing...",
-            start = time.time()
-            root = ET.parse(urllib2.urlopen(url)).getroot()
-            print "{} seconds".format(time.time() - start)
+        #filename = url.split("/")[-1]
+            
+        root = ET.parse(urllib2.urlopen(url)).getroot()
 
-            with open("./files/{}".format(filename), 'w') as f:
-                f.write(ET.tostring(root))
+        #with open("./files/{}".format(filename), 'w') as f:
+        #    f.write(ET.tostring(root))
 
         self.root = root
 
     def get_fields(self):
 
-        self.fields = {}
-
-        for field, queries, callback in self.ACCOUNTING_FIELDS:
+        for field, queries, callback, non_core in self.ACCOUNTING_FIELDS:
             i = 0
             matches = self.name_matches(queries[i])
             while i < len(queries) - 1 and not matches:
                 i += 1
-                matches = self.name_matches(queries[i])
+                matches = self.name_matches(queries[i], non_core=non_core)
                 if callback:
                     matches = callback(matches)
 
@@ -140,34 +164,36 @@ class Filing:
 
         self.instances = []
         
-        # All nodes with unitRef
-        nodes = self.root.findall("*[@unitRef]")
+        for node in self.root.iter():
+            # asof from DocumentPeriodEndDate (no unitRef attr):
+            if node.tag.endswith('DocumentPeriodEndDate'):
+                self.fields['asof'] = node.text
+            # nodes with values all have unitRef attrs:
+            elif node.attrib.has_key('unitRef') and node.text:
 
-        for node in nodes:
+                # Get name and value from tag name and inner text contents
+                name = node.tag.split('}')[-1]
+                value = float(node.text)
+                # Initialize period to empty list and segment to empty string
+                period, segment = [], ''
+                
+                # Get period and segment (if any) from context
+                context = self.root.find("*[@id='{}']".format(node.attrib['contextRef']))
+                
+                for el in context.iter():
+                
+                    if el.tag.endswith("explicitMember"):
+                        segment = el.text
+                    if el.tag.endswith("instant"):
+                        period = [el.text, el.text]
+                    if el.tag.endswith("startDate"):
+                        period.append(el.text)
+                    if el.tag.endswith("endDate"):
+                        period.insert(0, el.text)
 
-            # Get name and value from tag name and inner text contents
-            name, value = node.tag.split('}')[-1], node.text
-            # Initialize period to empty list and segment to empty string
-            period, segment = [], ''
-            
-            # Get period and segment (if any) from context
-            context = self.root.find("*[@id='{}']".format(node.attrib['contextRef']))
-            
-            for el in context.iter():
-            
-                if el.tag.endswith("explicitMember"):
-                    segment = el.text
-                if el.tag.endswith("instant"):
-                    period = [el.text, el.text]
-                if el.tag.endswith("startDate"):
-                    period.append(el.text)
-                if el.tag.endswith("endDate"):
-                    period.append(el.text)
-            
-            
-            period = tuple(period)
+                period = tuple(period)
 
-            self.instances.append((name, period, value, segment))
+                self.instances.append((name, period, value, segment))
 
 
     def name_matches(self, query, non_core=False):
@@ -186,7 +212,9 @@ class Filing:
     def accounting_adj(self):
         """Clean ups to accounting fields after all other attempts finished"""
         # If wav shares above didn't work, impute NIL and EPS
-        self.fields['WeightedAverageDilutedShares'] = self.impute(1, self.fields['NetIncomeLoss'], self.fields['EarningsPerShare'], func=self.divide)
+        self.fields['WeightedAverageDilutedShares'] = self.impute(
+            1, self.fields['NetIncomeLoss'], self.fields['EarningsPerShare'],
+            func=self.divide)
 
 
 class Company:
@@ -201,7 +229,6 @@ class Company:
 
     def get_filings(self):
 
-        print 'getting filings...'
         if not self.filings_list:
             self.get_filings_list()
 
@@ -222,9 +249,7 @@ class Company:
             url = "{}{}{}".format(ROOT, SEARCH_PATH, enc_params)
             
             _file = urllib2.urlopen(url)
-            
             xml = minidom.parse(_file)
-            
 
             name = xml.getElementsByTagName('conformed-name')[0]
             name = unescape(name.firstChild.nodeValue).upper()
@@ -247,16 +272,12 @@ class Company:
 
                 
                 _file = urllib2.urlopen(ix_url)
-                
                 source = _file.read()
 
                 xml_slug = re.findall(r'{}.*?\d{{8}}\.xml'.format(DATA_PATH), source)[0]
                 f_url = "{}{}".format(ROOT, xml_slug)
                 
                 self.filings_list.append((f_date, f_url))
-
-            print "\t{} seconds.".format(time.time() - start)
-        
 
     def dump(self):
 
@@ -269,8 +290,8 @@ class Company:
         """ Add metrics for html presentation """ 
 
         self.metrics = dict() # fields prepared for html templates
-        revenues = self.hist_fields('Revenues')
-        dates = [el[0] for el in revenues]
+        revenues = self.hist_quarters('Revenues')
+        dates = [el[0][0] for el in revenues]
         dts = [datetime.datetime.strptime(date, '%Y-%m-%d') for date in dates]
         self.metrics['years'] = sorted(list(set([dt.year for dt in dts])),
             reverse=True)[:5]
@@ -281,21 +302,35 @@ class Company:
         # loop the below?
         self.to_array('revenues', revenues)
         self.metrics['revenue_totals'] = map(lambda l: sum(filter(None, l)), self.metrics['revenues'])
-        self.to_array('eps', self.hist_fields('EarningsPerShare'))
+        self.to_array('eps', self.hist_quarters('EarningsPerShare'))
         self.metrics['eps_totals'] = map(lambda l: sum(filter(None, l)), self.metrics['eps'])
         
-        self.to_array('filedates', self.meta['filing_dates'])
+        filing_dates = map(lambda x: (x[0], x[2]), revenues)
+        self.to_array('filedates', filing_dates)
         
         self.metrics['unit'] = self.get_unit()
         self.metrics['revenue_totals'] = map(self.fmt_val, self.metrics['revenue_totals'])
         self.metrics['revenues'] = [map(self.fmt_val, items) for items in self.metrics['revenues']]
-        shares_out = self.hist_fields('SharesOutstanding')[0][-1]
-        self.metrics['shs'] = self.fmt_val(shares_out)
+
+        shs = sorted(self.filings.items(), reverse=True)[0][1]['SharesOutstanding']
+        shs = sorted(shs, reverse=True)[0][1]
+        self.metrics['shs'] = self.fmt_val(shs)
         self.metrics['eps_totals'] = map(self.fmt_per_sh, self.metrics['eps_totals'])
         self.metrics['eps'] = [map(self.fmt_per_sh, items) for items in self.metrics['eps']]
 
-        # Add pricing
+        # TODO: add pricing
         self.prices['last'] = 0.0
+
+    def to_array(self, key, fields):
+
+        self.metrics[key] = []
+
+        for yr in self.metrics['years']:
+            year = []
+            for mo in self.metrics['months']:
+                val = filter(lambda x: int(x[0][0][:4]) == yr and int(x[0][0][5:7]) == mo[0], fields)
+                year.append(val[0][1] if len(val) == 1 else None)
+            self.metrics[key].append(year)
 
     def fmt_val(self, value):
 
@@ -319,17 +354,6 @@ class Company:
 
         unit_label = unit_labels[unit]
         return unit, unit_label
-
-    def to_array(self, key, fields):
-
-        self.metrics[key] = []
-
-        for yr in self.metrics['years']:
-            year = []
-            for mo in self.metrics['months']:
-                val = filter(lambda x: int(x[0][:4]) == yr and int(x[0][5:7]) == mo[0], fields)
-                year.append(val[0][-1] if len(val) == 1 else None)
-            self.metrics[key].append(year)
 
     def pct_print(self, decimals):
 
@@ -383,72 +407,48 @@ class Company:
 
         return date
 
-    def impute_periods(self, fields):
-        imputed = []
-        for el in fields:
-            for other in fields:
-                # if same enddate and 'other' starts later, 'new' starts earlier
-                if other[0][0] == el[0][0] and other[0][1] > el[0][1]:
-                    new_end = self.inc_days(other[0][1], -1)
-                    new_start = el[0][1]
-                    new_value = el[1] - other[1]
-                    new = ((new_end, new_start), new_value)
-                    imputed.append(new)
-                # if same startdate and 'other' ends before, 'new' ends after
-                if other[0][1] == el[0][1] and other[0][0] < el[0][0]:
-                    new_end = el[0][0]
-                    new_start = self.inc_days(other[0][0], 1)
-                    new_value = el[1] - other[1]
-                    new = ((new_end, new_start), new_value)
-                    imputed.append(new)
-
-        return list(set(imputed))
 
     def per_to_delta(self, period):
-        """ Takes end_date, start_date list or tuple and returns end_date, 
-        delta (# days) tuple """
+        """ Takes end_date, start_date list or tuple and delta (# days) '2013-06-29'"""
         
+        fmt = '%Y-%m-%d'
         end_date = period[0]
-        period = map(self.to_dt, period)
+        period = map(lambda x: datetime.datetime.strptime(x, fmt), period)
         delta = reduce(lambda x, y: x - y, period).days
         
-        return end_date, delta
-
-    def all_fields(self, query):
-
-        fields = [value[query] for value in self.filings.values()]
-        fields = list(set([item for sublist in fields for item in sublist]))
-        imputeds = self.impute_periods(fields)
-        total = list(set(fields + imputeds))
-
-        return total
+        return delta
 
     def hist_fields(self, query):
         """ Returns the 0th field entry stored at query key in each filing.
         INPUT: query string matching a key in the self.filings dictionaries
-        OUTPUT: zipped list of (end_date, delta, value) tuples
-            - Deltas are # of days between start_date and end_date
-            - End_dates are end of period
+        OUTPUT: 
         NOTES:
-            - Quarterize method attempts to convert non-quarterly values to
-            quarterly values using previous periods (this will leave some
-            periods unconverted, e.g. an annual value not preceded by at least
-            three quarterly filings)
-            - Field values are sorted descended by periods which are
-            (end_date, start_date), so 0th result should be shortest duration
-            ending on latest date.
         """
 
-        filings_items = sorted(self.filings.items(), reverse=True)
-        fields = [val[query][0] for key, val in filings_items]
-        fields = [list(self.per_to_delta(el[0])) + [el[1]] for el in fields]
-
-        # ??: Always the case for average terms?
         average = 'average' in query.lower()
-        self.quarterize(fields, average=average)
-        self.truncate_hist(fields)
 
-        return fields
+        hist = []
+        for key, value in self.filings.items():
+            asof = key.split("|")[0]
+            fields = value[query]
+            fields = [(self.per_to_delta(el[0]),) + el + (asof,) for el in fields]
+            hist += fields
+        
+        hist = list(fields + self.impute_periods(hist, average=average))
+
+        return hist
+
+    def hist_quarters(self, query):
+
+        hist = self.hist_fields(query)
+        quarters = [el[1:] for el in filter(lambda x: x[0] < 100, hist)]
+        enddates = list(set(map(lambda x: x[0][0], quarters)))
+        
+        results = []
+        for enddate in enddates:
+            results.append(filter(lambda x: x[0][0]==enddate, quarters)[0])
+
+        return results
 
     def truncate_hist(self, fields):
         """ Truncates from first period longer than 100 days """
@@ -457,6 +457,57 @@ class Company:
             if fields[i][1] > 100:
                 fields = fields[:i]
                 break
+
+    def impute_period(self, outer, inner, sign, average):
+
+        new_delta = outer[0] + sign * inner[0]
+        if average:
+            product1 = outer[2] * outer[0]
+            product2 = inner[2] * inner[0]
+            new_value = (product1 + sign * product2) / new_delta
+        else:
+            new_value = outer[2] + sign * inner[2]
+        
+        return new_delta, new_value
+
+    def impute_periods(self, fields, average=False):
+
+        imputed = []
+        # remove duplicates:
+        fields = list(set(fields))
+        # iterate backwords to avoid interacting with new items
+        for el in fields:
+            asof = "{}*".format(el[3])
+            # if 'el' non-quarterly, try to impute smaller periods
+            if el[0] > 100:
+                for other in fields:
+                    # same enddate + 'other' starts later => impute earlier
+                    if other[1][0] == el[1][0] and other[1][1] > el[1][1]:
+                        end = self.inc_days(other[1][1], -1)
+                        start = el[1][1]
+                        delta, value = self.impute_period(el, other, -1, average)
+                        imputed.append((delta, (end, start), value, asof))
+                    # same startdate + 'other' ends before => impute later
+                    if other[1][1] == el[1][1] and other[1][0] < el[1][0]:
+                        end = el[1][0]
+                        start = self.inc_days(other[1][0], 1)
+                        delta, value = self.impute_period(el, other, -1, average)
+                        imputed.append((delta, (end, start), value, asof))
+
+            for other in fields:
+                # try to chain 'el' and 'other' if => 1 year or less
+                if el[0] + other[0] <= 370:
+                    # 'other' startdate == ('el' enddate + 1) => chain periods
+                    if other[1][1] == self.inc_days(el[1][0], 1):
+                        end = other[1][0]
+                        start = el[1][1]
+                        delta, value = self.impute_period(el, other, 1, average)
+                        imputed.append((delta, (end, start), value, asof))
+
+        # remove duplicates
+        imputed = list(set(imputed))
+
+        return imputed
 
     def quarterize(self, fields, average):
         """ Converts non-quarterly periods to quarterly
