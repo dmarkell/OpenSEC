@@ -6,11 +6,18 @@ import os
 import re
 import time
 import urllib
-import urllib2
+
 from xml.dom import minidom
 import xml.etree.ElementTree as ET
 
-#asof = 'DocumentPeriodEndDate'
+try:
+    from google.appengine.api import urlfetch
+    production = True
+
+except ImportError:
+    import urllib2
+    production = False
+
 
 # CONSTANTS
 ROOT = "http://www.sec.gov/"
@@ -36,7 +43,7 @@ class Filing:
             ('Revenues', (
                 'Revenues', 'SalesRevenueNet', 'SalesRevenueServicesNet', 
                 'RevenuesNetOfInterestExpense', 'TotalRevenuesAndOtherIncome',
-                'RevenuesNet'), None, False),
+                'RevenuesNet', 'SalesRevenueGoodsNet'), None, False),
             ('WeightedAverageDilutedShares', (
                 'WeightedAverageNumberOfDilutedSharesOutstanding',
                 'WeightedAverageNumberOfDilutedSharesOutstanding',
@@ -85,20 +92,23 @@ class Filing:
             ('LongTermInvestments', ('LongTermInvestments'), None, False)
         ]
 
+        start = time.time()
+        print "parsing filing...",
         self._load_root(url)
+        print "{} seconds".format(time.time() - start)
         self.fields = {}
-        self.get_instances()        
+        self.get_instances()
         self.get_fields()
 
 
     def _load_root(self, url):
 
-        #filename = url.split("/")[-1]
-            
-        root = ET.parse(urllib2.urlopen(url)).getroot()
+        if production:
+            data = urlfetch.fetch(url).content
+        else:
+            data = urllib2.urlopen(url).read()
 
-        #with open("./files/{}".format(filename), 'w') as f:
-        #    f.write(ET.tostring(root))
+        root = ET.fromstring(data)
 
         self.root = root
 
@@ -240,43 +250,47 @@ class Company:
 
     def get_filings_list(self):
 
-        params = dict(action="getcompany", count=100, output='atom')
+        params = dict(action="getcompany", count=100)
         params['ticker']= self.meta['ticker']
+
+        name_p = re.compile(r'"companyName">([\s\S]*?)<')
+        cik_p = re.compile(r'CIK=(\d{10})')
+        row_p = re.compile(r'<tr[\s\S]*?</tr>')
+        slug_p = re.compile(r'href="(\S*index.html?)"')
+        date_p = re.compile(r'<td>(\d{4}-\d{2}-\d{2})</td>')
+        xml_p = re.compile(r'{}.*?\d{{8}}\.xml'.format(DATA_PATH))
         
         for form in ['10-', '20-']:
             params['type'] = form
             enc_params = urllib.urlencode(params)
             url = "{}{}{}".format(ROOT, SEARCH_PATH, enc_params)
             
-            _file = urllib2.urlopen(url)
-            xml = minidom.parse(_file)
+            if production:
+                source = urlfetch.fetch(url).content
+            else:
+                source = urllib2.urlopen(url).read()
 
-            name = xml.getElementsByTagName('conformed-name')[0]
-            name = unescape(name.firstChild.nodeValue).upper()
-            self.meta['name'] = name
-            self.meta['cik'] = xml.getElementsByTagName('cik')[0].firstChild.nodeValue
+            name = name_p.findall(source)[0]
+            self.meta['name'] = unescape(name).upper()
+            self.meta['cik'] = cik_p.findall(source)[0]
 
-            # Thanks to https://github.com/fernavid/
-            docs_list = xml.getElementsByTagName('entry')
-            start=  time.time()
-            for doc in docs_list:
-                try:
-                    doc.getElementsByTagName('content')[0]
-                    doc.getElementsByTagName('xbrl_href')[0]
-                    
-                except IndexError:
-                    continue
-
-                ix_url = doc.getElementsByTagName('filing-href')[0].firstChild.nodeValue
-                f_date = doc.getElementsByTagName('filing-date')[0].firstChild.nodeValue
-
+            rows = row_p.findall(source)
+            rows = filter(lambda x: x.find('interactiveDataBtn') <> -1, rows)
+            
+            urls = map(lambda x: "{}{}".format(ROOT[:-1], slug_p.findall(x)[0]), rows)
+            dates = map(lambda x: date_p.findall(x)[0], rows)
                 
-                _file = urllib2.urlopen(ix_url)
-                source = _file.read()
+            for ix, url in enumerate(urls):
 
-                xml_slug = re.findall(r'{}.*?\d{{8}}\.xml'.format(DATA_PATH), source)[0]
+                f_date = dates[ix]
+
+                if production:
+                    f_source = urlfetch.fetch(url).content
+                else:
+                    f_source = urllib2.urlopen(url).read()
+
+                xml_slug = xml_p.findall(f_source)[0]
                 f_url = "{}{}".format(ROOT, xml_slug)
-                
                 self.filings_list.append((f_date, f_url))
 
     def dump(self):
@@ -291,6 +305,7 @@ class Company:
 
         self.metrics = dict() # fields prepared for html templates
         revenues = self.hist_quarters('Revenues')
+        logging.error(revenues)
         dates = [el[0][0] for el in revenues]
         dts = [datetime.datetime.strptime(date, '%Y-%m-%d') for date in dates]
         self.metrics['years'] = sorted(list(set([dt.year for dt in dts])),
@@ -354,10 +369,6 @@ class Company:
 
         unit_label = unit_labels[unit]
         return unit, unit_label
-
-    def pct_print(self, decimals):
-
-        return map(lambda x: "{:.1f}%".format(100. * x), decimals)
 
     def hist_ratios(self, field1_name, field2_name):
 
@@ -508,42 +519,3 @@ class Company:
         imputed = list(set(imputed))
 
         return imputed
-
-    def quarterize(self, fields, average):
-        """ Converts non-quarterly periods to quarterly
-        Assumption is that previous periods are continuous with no jumps:
-        e.g. 12-month data would be preceded by quarterly, 6 month or 9 month data
-        ending one quarter before the number being adjusted.
-        Primary use would be 10-Ks without any quarterly data, and cash flow
-        statements showing only YTD periods.
-        
-        TODO:
-            - This method (using the prior period filing for adjustment) should
-            be a second resort--the first attempt should impute the quarterly
-            value from other periods shown in the filing itself...?
-            - Another way to do the below using periods instead of deltas?:
-            size = len(deltas)
-            for i in xrange(size - 1):
-                j = i + 1
-                while periods[j][1] >= periods[i][1]:
-                    values[i] -= values[j]
-        """
-        #size = len(deltas)
-        size = len(fields)
-        for i in xrange(size - 1):
-            if fields[i][1]: # delta
-                if average:
-                    # normalize weighted average (value * #days)
-                    product = fields[i][-1] * fields[i][1]
-                j = i + 1
-                # 65 used so that three 100-day quarters could be subtracted
-                while j < size and fields[i][1] - fields[j][1] > 65:
-                    fields[i][1] -= fields[j][1] # adjust delta
-                    if average:
-                        product -= fields[j][-1] * fields[j][1] # adjust product
-                    else:
-                        fields[i][-1] -= fields[j][-1] # adjust value
-                    j += 1
-                if average:
-                    # de-normalize weighted average (value / #days)
-                    fields[i][-1] = product / fields[i][1] # product / delta
