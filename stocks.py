@@ -3,6 +3,27 @@ import re
 import urllib
 from google.appengine.api import urlfetch
 
+def get_prices(ticker):
+    """ Gets daily price information from Yahoo! Finance """
+
+    ENDPOINT = 'http://ichart.finance.yahoo.com/table.csv?'
+    params = dict(g='d', s=ticker)
+    params = urllib.urlencode(params)
+    data = urlfetch.fetch(ENDPOINT + params).content
+    lines = data.strip().split('\n')[1:]
+    lines = [line.split(',') for line in lines]
+
+    return lines
+
+def json_prices(ticker):
+    """ Gets daily adjusted close as json object """
+
+    data = []
+    lines = get_prices(ticker)
+    for line in lines:
+        data.append(dict(Date=line[0], AdjClose=line[-1]))
+
+    return data
 
 def get_weekday(date):
     """ Returns nearest weekday in direction and magnitude of offset.

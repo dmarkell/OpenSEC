@@ -23,14 +23,29 @@ except ImportError:
 ROOT = "http://www.sec.gov/"
 SEARCH_PATH = "cgi-bin/browse-edgar/?"
 DATA_PATH = "Archives/edgar/data/"
+DFMT = '%Y-%m-%d'
 
 # simplified version of http://effbot.org/zone/re-sub.htm#unescape-html
 def unescape(text):
+    """ De-encode html safe text. """
+
     def fixup(m):
         old = m.groups(0)[0]
         new = htmlentitydefs.entitydefs[old]
         return new
+
     return re.sub("&(\w+);", fixup, text)
+
+def decr_date(date):
+    """ Converts dt to prior month-end if within 5 days of beginning of mo."""
+    
+    dt = datetime.datetime.strptime(date, DFMT)
+    day = dt.day
+    
+    if day <= 5:
+        dt -= datetime.timedelta(days=day)
+
+    return dt
 
 class Filing:
 
@@ -53,7 +68,9 @@ class Filing:
             ('EarningsPerShare', (
                 'EarningsPerShareDiluted', 'EarningsPerShareBasicAndDiluted',
                 'BasicDilutedEarningsPerShareNetIncome',
-                'BasicAndDilutedLossPerShare'), None, False),
+                'BasicAndDilutedLossPerShare',
+                'IncomeLossFromContinuingOperationsPerDilutedShare'),# pg-20131231
+                None, False),
             ('NetIncomeLoss', (
                 'ProfitLoss', 'NetIncomeLoss',
                 'NetIncomeLossAvailableToCommonStockholdersBasic',
@@ -169,15 +186,16 @@ class Filing:
 
     def get_instances(self):
 
-        """ ET root as input
-        Returns list of ('name', 'period', 'value', 'segment') tuples"""
+        """ Returns list of ('name', 'period', 'value', 'segment') tuples. """
 
         self.instances = []
         
         for node in self.root.iter():
             # asof from DocumentPeriodEndDate (no unitRef attr):
             if node.tag.endswith('DocumentPeriodEndDate'):
-                self.fields['asof'] = node.text
+                date = node.text
+                self.fields['asof'] = date
+
             # nodes with values all have unitRef attrs:
             elif node.attrib.has_key('unitRef') and node.text:
 
@@ -205,7 +223,6 @@ class Filing:
 
                 self.instances.append((name, period, value, segment))
 
-
     def name_matches(self, query, non_core=False):
  
         regexp = "^{}$".format(query)
@@ -226,7 +243,6 @@ class Filing:
             1, self.fields['NetIncomeLoss'], self.fields['EarningsPerShare'],
             func=self.divide)
 
-
 class Company:
 
     def __init__(self, ticker):
@@ -234,7 +250,6 @@ class Company:
         self.filings_list = []
         self.meta = dict(ticker=ticker.upper(), filing_dates=[])
         self.filings = dict() # all fields found by AccountingFields
-        self.prices = dict() # TODO: This will contain Yahoo! dataframe
         self.get_filings()
 
     def get_filings(self):
@@ -293,21 +308,18 @@ class Company:
                 f_url = "{}{}".format(ROOT, xml_slug)
                 self.filings_list.append((f_date, f_url))
 
-    def dump(self):
-
-        with open(self.filename, 'w') as f:
-            data = dict(meta=self.meta,
-                filings=self.filings, prices=self.prices)
-            f.write(json.dumps(data))
-
     def get_metrics(self):
         """ Add metrics for html presentation """ 
 
         self.metrics = dict() # fields prepared for html templates
-        revenues = self.hist_quarters('Revenues')
-        logging.error(revenues)
-        dates = [el[0][0] for el in revenues]
-        dts = [datetime.datetime.strptime(date, '%Y-%m-%d') for date in dates]
+        revenues = sorted(self.hist_quarters('Revenues'), reverse=True)
+        eps = sorted(self.hist_quarters('EarningsPerShare'), reverse=True)
+        
+        dts = [decr_date(rev[0][0]) for rev in revenues]
+        filing_dates = [(decr_date(el[0][0]), el[2]) for el in revenues]
+        revenues = [(decr_date(el[0][0]), el[1]) for el in revenues]
+        eps = [(decr_date(el[0][0]), el[1]) for el in eps]
+        
         self.metrics['years'] = sorted(list(set([dt.year for dt in dts])),
             reverse=True)[:5]
         self.metrics['months'] = sorted(list(set([(dt.month,
@@ -317,10 +329,9 @@ class Company:
         # loop the below?
         self.to_array('revenues', revenues)
         self.metrics['revenue_totals'] = map(lambda l: sum(filter(None, l)), self.metrics['revenues'])
-        self.to_array('eps', self.hist_quarters('EarningsPerShare'))
+        self.to_array('eps', eps)
         self.metrics['eps_totals'] = map(lambda l: sum(filter(None, l)), self.metrics['eps'])
-        
-        filing_dates = map(lambda x: (x[0], x[2]), revenues)
+
         self.to_array('filedates', filing_dates)
         
         self.metrics['unit'] = self.get_unit()
@@ -333,9 +344,6 @@ class Company:
         self.metrics['eps_totals'] = map(self.fmt_per_sh, self.metrics['eps_totals'])
         self.metrics['eps'] = [map(self.fmt_per_sh, items) for items in self.metrics['eps']]
 
-        # TODO: add pricing
-        self.prices['last'] = 0.0
-
     def to_array(self, key, fields):
 
         self.metrics[key] = []
@@ -343,7 +351,7 @@ class Company:
         for yr in self.metrics['years']:
             year = []
             for mo in self.metrics['months']:
-                val = filter(lambda x: int(x[0][0][:4]) == yr and int(x[0][0][5:7]) == mo[0], fields)
+                val = filter(lambda x: x[0].year == yr and x[0].month == mo[0], fields)
                 year.append(val[0][1] if len(val) == 1 else None)
             self.metrics[key].append(year)
 
@@ -411,10 +419,9 @@ class Company:
 
     def inc_days(self, date, num):
 
-        fmt = '%Y-%m-%d'
-        dt = datetime.datetime.strptime(date, fmt)
+        dt = datetime.datetime.strptime(date, DFMT)
         dt += datetime.timedelta(days=num)
-        date = dt.strftime(fmt)
+        date = dt.strftime(DFMT)
 
         return date
 
@@ -422,9 +429,8 @@ class Company:
     def per_to_delta(self, period):
         """ Takes end_date, start_date list or tuple and delta (# days) '2013-06-29'"""
         
-        fmt = '%Y-%m-%d'
         end_date = period[0]
-        period = map(lambda x: datetime.datetime.strptime(x, fmt), period)
+        period = map(lambda x: datetime.datetime.strptime(x, DFMT), period)
         delta = reduce(lambda x, y: x - y, period).days
         
         return delta
@@ -440,12 +446,12 @@ class Company:
 
         hist = []
         for key, value in self.filings.items():
-            asof = key.split("|")[0]
+            fdate = key.split("|")[0]
             fields = value[query]
-            fields = [(self.per_to_delta(el[0]),) + el + (asof,) for el in fields]
+            fields = [(self.per_to_delta(el[0]),) + el + (fdate,) for el in fields]
             hist += fields
         
-        hist = list(fields + self.impute_periods(hist, average=average))
+        hist = list(hist + self.impute_periods(hist, average=average))
 
         return hist
 
@@ -488,7 +494,7 @@ class Company:
         fields = list(set(fields))
         # iterate backwords to avoid interacting with new items
         for el in fields:
-            asof = "{}*".format(el[3])
+            fdate = "{}*".format(el[3])
             # if 'el' non-quarterly, try to impute smaller periods
             if el[0] > 100:
                 for other in fields:
@@ -497,13 +503,13 @@ class Company:
                         end = self.inc_days(other[1][1], -1)
                         start = el[1][1]
                         delta, value = self.impute_period(el, other, -1, average)
-                        imputed.append((delta, (end, start), value, asof))
+                        imputed.append((delta, (end, start), value, fdate))
                     # same startdate + 'other' ends before => impute later
                     if other[1][1] == el[1][1] and other[1][0] < el[1][0]:
                         end = el[1][0]
                         start = self.inc_days(other[1][0], 1)
                         delta, value = self.impute_period(el, other, -1, average)
-                        imputed.append((delta, (end, start), value, asof))
+                        imputed.append((delta, (end, start), value, fdate))
 
             for other in fields:
                 # try to chain 'el' and 'other' if => 1 year or less
@@ -513,7 +519,7 @@ class Company:
                         end = other[1][0]
                         start = el[1][1]
                         delta, value = self.impute_period(el, other, 1, average)
-                        imputed.append((delta, (end, start), value, asof))
+                        imputed.append((delta, (end, start), value, fdate))
 
         # remove duplicates
         imputed = list(set(imputed))

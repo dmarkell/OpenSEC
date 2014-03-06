@@ -6,7 +6,7 @@
     <caption>
         <div>{{meta['name']}} ({{meta['ticker']}})</div>
         <div class="small">
-            <div class="left">Last: {{prices['last']}}</div>
+            <div class="left">Last Close: {{prices[0]['AdjClose']}}<date>({{prices[0]['Date']}})</date></div>
             <div class="right">Shs: {{metrics['shs']}}</div>
         </div>
     </caption>
@@ -84,5 +84,10 @@
 </table>
 <p>Values in {{metrics['unit'][1]}} USD except per share amounts</p>
 
+<div class="chart"></div>
+
+<script src="http://d3js.org/d3.v3.min.js"></script>
+<script>JSONData = {{prices | safe}}</script>
+<script src="/static/d3chart.js"></script>
 
 {% endblock %}

@@ -179,7 +179,8 @@ class CompanyResults(Handler):
         if not company:
             co = fins.Company(ticker)
             co.get_metrics()
-            company=dict(meta=co.meta, prices=co.prices, metrics=co.metrics)
+            company=dict(meta=co.meta, metrics=co.metrics)
+            company['prices'] = stocks.json_prices(ticker)[:252]
             
         memcache.set(ticker, company)
         self.render("company.html", **company)

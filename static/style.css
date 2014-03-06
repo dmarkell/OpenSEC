@@ -167,18 +167,28 @@ input[type=submit].select:hover,
     color:red;
 }
 
-/* Company chart ---------- */
+/* Prices chart ---------- */
 
-figure {
-    margin: 0 auto;
-    width: 100%;
-}
 
-figure img {
+svg {
     max-width: 100%;
+    background-color: white;   
 }
 
-/* --END company chart ---- */
+.area {
+    fill: midnightblue;
+}
+
+.axis path,
+.axis line {
+    fill: none;
+    stroke: #000;
+    shape-rendering: crispEdges;
+
+}
+
+
+/* --END prices chart ---- */
 
 /* Both tables ------------ */
 
@@ -372,6 +382,11 @@ button:hover{
 .company thead th:nth-child(n+3),
 .company tr:nth-child(3n+3):not(:last-child) td {
     border-bottom: thin solid;
+}
+
+date {
+    font-size: 0.5em;
+    color: black;
 }
 
 /* <--- overlays one cell from each left header col category---- */
