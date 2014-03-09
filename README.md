@@ -28,3 +28,7 @@ Yahoo Finance prices for the selected company stock are presented in an interact
 ## Institutional holders
 
 Quarterly 13F filings are parsed, sorted and summarized, and presented with links to individual company summaries as well as lists of other holders an historical activity for the filing.
+
+# License
+
+Licensed under the [MIT](http://www.opensource.org/licenses/mit-license.php) license.
