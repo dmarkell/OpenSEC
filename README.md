@@ -1,4 +1,4 @@
-# EdgarDash: An open source search and visualization tool for the SEC Edgar system.
+# EdgarDash: An open source dashboard to the SEC Edgar system.
 
 ## Overview
 
