@@ -7,10 +7,12 @@
         <div>{{meta['name']}} ({{meta['ticker']}})</div>
         <div class="small">
             <div class="left">Last Close: {{prices[0]['AdjClose']}}<date>({{prices[0]['Date']}})</date></div>
+            {% if metrics %}
             <div class="right">Shs: {{metrics['shs']}}</div>
+            {% endif %}
         </div>
     </caption>
-
+    {% if metrics %}
     <thead>
         <tr>
             <th></th>
@@ -80,9 +82,11 @@
             {% endfor %}
         </tr>
     </tbody>
-
+    {% endif %}
 </table>
+{% if metrics %}
 <p>Values in {{metrics['unit'][1]}} USD except per share amounts</p>
+{% endif %}
 
 <div class="chart"></div>
 

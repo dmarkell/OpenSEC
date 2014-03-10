@@ -13,6 +13,7 @@ import re
 
 import webapp2
 
+from google.appengine.runtime import DeadlineExceededError
 from google.appengine.api import memcache
 from google.appengine.ext import ndb
 
@@ -176,19 +177,32 @@ class Search(Handler):
 class CompanyResults(Search):
 
     def get(self, ticker):
-        
-        # look in memcache
-        company = memcache.get(ticker)
 
+        self.params = {'meta': {}}
+
+        # look in memcache for company dictionary
+        company = memcache.get(ticker)
+        if company:
+            self.params['meta'] = company['meta']
+            self.params['metrics'] = company['metrics']
+
+        # try to get company object using fins module
         if not company:
-            logging.info(ticker)
-            co = fins.Company(ticker)
-            co.get_metrics()
-            company=dict(meta=co.meta, metrics=co.metrics)
-            company['prices'] = stocks.json_prices(ticker)[:252]
-            
-        memcache.set(ticker, company)
-        self.render("company.html", **company)
+            try:
+                company = fins.Company(ticker)
+                company.get_metrics()
+                memcache.set(ticker, dict(meta=company.meta, metrics=company.metrics))
+                self.params['meta'] = company.meta
+                self.params['metrics'] = company.metrics
+            except DeadlineExceededError:
+                self.params['message'] = 'Error retrieving filings'
+                self.params['error'] = 'error'
+                self.params['meta']['ticker'] = ticker.upper()
+        
+        self.params['prices'] = stocks.json_prices(ticker)[:252*3] # 3 year of data
+        #company['prices'] = stocks.json_prices(ticker)[:252]
+        self.render("company.html", **self.params)
+
 
 app = webapp2.WSGIApplication(
     [
