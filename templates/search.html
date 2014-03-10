@@ -9,19 +9,24 @@
             <form id="inst-holders" autocomplete="off" method="post">
                 <input type="hidden" name="manager_full" value="{{manager_full}}">
                 {% if not (filings or mgr_matches) %}
-                    <div class="input-wrapper">
-                        <input type="search" id="manager" name="manager"
-                        value="{{manager}}" placeholder="Manager Name...">
-                        <input type="submit" class="search" value="Search">
-                    </div>
-                    {% if error %}
-                    <div class="message error">{{error}}</div>
-                    {% endif %}
+                <table>
+                    <tr>
+                        <td>Holder:</td>
+                        <td><input type="radio" value="holder" name="querytype" onChange="toggleQuery()" checked></td>
+                    </tr>
+                    <tr>
+                        <td>Company:</td>
+                        <td><input onChange="toggleQuery()" type="radio" value="company" name="querytype"></td>
+                    </tr>
+                </table>
                 {% endif %}
-                
-                {% if mgr_matches %}
-                
                 <div class="input-wrapper">
+                    {% if not (filings or mgr_matches) %}
+                    <input type="search" id="query" name="query"
+                    value="{{query}}" placeholder="Manager Name">
+                    <input type="submit" class="search" value="Search">
+                    {% endif %}
+                    {% if mgr_matches %}
                     <select autofocus="autofocus" id="managerselect" name="mgrurl">
                         {% for match in mgr_matches %}
                         <option value={{match[0]}}>
@@ -30,11 +35,8 @@
                         {% endfor %}
                     </select>
                     <input type="submit" class="select" value="Select">
-                </div>
-                {% endif %}
-                
-                {% if filings %}
-                <div class="input-wrapper">
+                    {% endif %}
+                    {% if filings %}
                     <select autofocus="autofocus" id="dateselect" name="filing_slug">
                         {% for filing in filings %}
                         <option value={{filing[0]}}>
@@ -43,19 +45,14 @@
                         {% endfor %}
                     </select>
                     <input type="submit" class="select" value="Select">
+                    {% endif %}
                 </div>
-                {% endif %}
-
-            {% if filings or mgr_matches %}
-            <div class="message">
-                {{message}}
-            </div>
-            {% endif %}
             </form>
 
         </div>
     </header>
     <div class="wrapper">
+        <div class="message {{error}}">{{message}}</div>
         <div class="manager">
             {% block manager %}
             {% endblock %}

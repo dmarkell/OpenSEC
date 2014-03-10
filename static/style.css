@@ -43,8 +43,8 @@ a:hover {
 }
 
 .wrapper {
-    margin: 100px auto 60px;
-    width:80%;
+    margin: 70px auto 650px;
+    width: 80%;
 }
 
 /* Header & envelope --------- */
@@ -55,12 +55,12 @@ header, body:before {
     position: fixed;
     top: 0;
     left: 0;
-    height: 90px;
+    height: 65px;
 }
 
 header {
     left: 0;
-    background-color: #bdc3c7;
+    background-color: rgba(189, 195, 199, 0.9);
     color: midnightblue;
     padding: 0 2%;
     box-sizing: border-box;
@@ -81,7 +81,7 @@ body:before {
 
 body:after {
     position: absolute;
-    top: 90px;
+    top: 65px;
     height: 3px;
     background: inherit;
     z-index: 9998;
@@ -90,6 +90,18 @@ body:after {
 header h1 {
     float: left;
     margin: 11px 0; /* Manual centering (60px - 37px) / 2 */
+}
+
+header table {
+    display: inline-block;
+    background-color: transparent;
+    margin-bottom: 8px; /* manual centering in fixed-height header */
+}
+
+header table td {
+    text-align: left;
+    font-weight: bold;
+
 }
 
 
@@ -176,6 +188,8 @@ input[type=submit].select:hover,
 
 .message {
     padding-bottom: 8px;
+    color: midnightblue;
+    text-align: center;
 }
 
 .error {
@@ -467,6 +481,16 @@ table + p {
 
 /* Media queries -------------------- */
 
+@media only screen and (max-width: 680px) {
+        header h1 {
+        display: none;
+    }
+
+    .menu {
+        float: none;
+    }
+}
+
 @media only screen and (max-width: 560px) {
     .company td:nth-child(7),
     .company th:nth-child(7) {
@@ -483,13 +507,6 @@ table + p {
         border-radius: 0 0 8px 0;
     }
 
-    header h1 {
-        display: none;
-    }
-
-    .menu {
-        float: none;
-    }
 }
 
 @media only screen and (max-width: 500px) {

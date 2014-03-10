@@ -112,12 +112,10 @@ class Filing:
 
 class Search(Handler):
 
-    params = dict(enumerate=enumerate, show=20)
-
     def get(self):
         self.render("search.html")
 
-    def post(self):
+    def post(self, ticker=None):
         
         """
         User enters manager name.
@@ -135,7 +133,7 @@ class Search(Handler):
         * selected filing is submitted and script next returns results, and
         resets search form.
         """
-
+        self.params = dict(enumerate=enumerate, show=20)
         self.filing_slug = self.request.get('filing_slug')
 
         if self.filing_slug:
@@ -148,19 +146,25 @@ class Search(Handler):
 
 
         else:
+            self.query_type = self.request.get('querytype')
             self.mgr_url = self.request.get('mgrurl')
-            self.manager = self.request.get('manager')
+            self.query = self.request.get('query')
+
+            if self.query_type == "company":
+                self.redirect("/{}".format(self.query))
+
             if not self.mgr_url:
-                self.mgr_url = crawler.get_manager(self.manager)
+                self.mgr_url = crawler.get_manager(self.query)
                 if not self.mgr_url:
                     self.render('search.html',
-                        **dict(error='No matches found for "{}"'.\
-                            format(self.manager)))
+                        **dict(
+                            message='No matches found for "{}"'.format(self.query),
+                            error="error"))
 
                 if isinstance(self.mgr_url, list):
                     self.render('search.html', **dict(mgr_matches=self.mgr_url,
                         message='{} matches found for "{}"'.\
-                        format(len(self.mgr_url), self.manager)))
+                        format(len(self.mgr_url), self.query)))
 
             if isinstance(self.mgr_url, basestring):
                 manager, cik, filings = crawler.get_filings_list(self.mgr_url)
@@ -169,7 +173,7 @@ class Search(Handler):
                     filings=filings, message='{} filings found for {}'.\
                     format(size, manager)))
 
-class CompanyResults(Handler):
+class CompanyResults(Search):
 
     def get(self, ticker):
         
@@ -177,6 +181,7 @@ class CompanyResults(Handler):
         company = memcache.get(ticker)
 
         if not company:
+            logging.info(ticker)
             co = fins.Company(ticker)
             co.get_metrics()
             company=dict(meta=co.meta, metrics=co.metrics)
@@ -184,9 +189,6 @@ class CompanyResults(Handler):
             
         memcache.set(ticker, company)
         self.render("company.html", **company)
-
-    def post(self, ticker):
-        self.redirect("/")
 
 app = webapp2.WSGIApplication(
     [
