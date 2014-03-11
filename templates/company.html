@@ -6,7 +6,10 @@
     <caption>
         <div>{{meta['name']}} ({{meta['ticker']}})</div>
         <div class="small">
-            <div class="left">Last Close: {{prices[0]['AdjClose']}}<date>({{prices[0]['Date']}})</date></div>
+            <div class="left">
+                Close: {{prices[0]['AdjClose']}}
+                <time datetime="{{prices[0]['Date']}}">({{prices[0]['Date']}})</time>
+            </div>
             {% if metrics %}
             <div class="right">Shs: {{metrics['shs']}}</div>
             {% endif %}

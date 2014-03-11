@@ -1,4 +1,4 @@
-# EdgarDash: An open source dashboard to the SEC Edgar system.
+# [OpenSEC](http://open-sec.appspot.com/): An open source dashboard to the SEC Edgar system.
 
 ## Overview
 

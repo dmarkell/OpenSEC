@@ -115,7 +115,7 @@ class Filing:
         print "{} seconds".format(time.time() - start)
         self.fields = {}
         self.get_instances()
-        self.get_fields()
+        #!#self.get_fields()
 
 
     def _load_root(self, url):
@@ -260,8 +260,8 @@ class Company:
         for fdate, furl in self.filings_list:
             key = "{}|{}".format(fdate, furl)
             filing = Filing(furl)
-            self.filings[key] = filing.fields
-            self.meta['filing_dates'].append((filing.fields['asof'], fdate))
+            #!#self.filings[key] = filing.fields
+           #!#self.meta['filing_dates'].append((filing.fields['asof'], fdate))
 
     def get_filings_list(self):
 

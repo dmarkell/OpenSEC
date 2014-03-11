@@ -1,13 +1,16 @@
-var margin = {top: 20, right: 10, bottom: 30, left: 50},
-    height = 300 - margin.top - margin.bottom,
-    width = 585 - margin.left - margin.right;
+var aspect = 585 / 300;
+
+var margin = {top: 20, right: 10, bottom: 20, left: 25},
+    height = 300 - margin.top - margin.bottom, // 300
+    width = 585 - margin.left - margin.right; // 585
+
+var chart = d3.select(".chart");
 
 var x = d3.time.scale()
     .range([0, width]);
 
 var y = d3.scale.linear()
     .range([height, 0]);
-    
 
 var parseDate = d3.time.format("%Y-%m-%d").parse,
     dateFn = function(d) { return parseDate(d.Date) },
@@ -16,34 +19,28 @@ var parseDate = d3.time.format("%Y-%m-%d").parse,
 var xAxis = d3.svg.axis()
     .scale(x)
     .orient("bottom")
-    .ticks(6)
     .tickFormat(d3.time.format('%m/%Y'));
 
 var yAxis = d3.svg.axis()
     .scale(y)
     .orient("left");
 
-var area = d3.svg.area()
-    .interpolate("monotone")
+var line = d3.svg.line()
     .x(function(d) { return x(dateFn(d)); })
-    .y0(height)
-    .y1(function(d) { return y(closeFn(d)); });
+    .y(function(d) { return y(closeFn(d)); });
 
-var svg = d3.select(".chart").append("svg")
+var svg = chart.append("svg")
     .attr("width", width + margin.left + margin.right)
     .attr("height", height + margin.top + margin.bottom)
   .append("g")
     .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 
 var data = JSONData.slice();
+var barWidth = width / data.length;
 
 x.domain(d3.extent(data.map(dateFn)));
 y.domain([0, d3.max(data.map(closeFn))]);
 
-svg.append("path")
-    .datum(data)
-    .attr("class", "area")
-    .attr("d", area);
 
 svg.append("g")
     .attr("class", "x axis")
@@ -53,4 +50,35 @@ svg.append("g")
 svg.append("g")
     .attr("class", "y axis")
     .call(yAxis);
+
+svg.append("path")
+    .datum(data)
+    .attr("class", "line")
+    .attr("d", line);
+
+var hoverLineGroup = svg.append("g")
+    .attr("class", "hover-line");
+
+var hoverLine = hoverLineGroup
+    .append("line")
+      .attr("x1", margin.left).attr("x2", margin.left)
+      .attr("y1", 0).attr("y2", height)
+      .style("opacity", 1e-6);
+
+chart.on("mouseover", function() {
+}).on("mousemove", function() {
+    var mouse_x = d3.mouse(this)[0];
+    if (mouse_x > margin.left && mouse_x < margin.left + width) {
+        var mouse_y = d3.mouse(this)[0];
+        hoverLine
+            .attr("x1", mouse_x - margin.left)
+            .attr("x2", mouse_x - margin.left)
+            .style("opacity", 0.5)
+    } else {
+        hoverLine.style("opacity", 1e-6);
+    };
+}).on("mouseout", function() {
+    hoverLine.style("opacity", 1e-6);
+});
+    
 

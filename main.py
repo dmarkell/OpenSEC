@@ -190,19 +190,18 @@ class CompanyResults(Search):
         if not company:
             try:
                 company = fins.Company(ticker)
-                company.get_metrics()
-                memcache.set(ticker, dict(meta=company.meta, metrics=company.metrics))
-                self.params['meta'] = company.meta
-                self.params['metrics'] = company.metrics
-            except DeadlineExceededError:
+                #company.get_metrics()
+                #memcache.set(ticker, dict(meta=company.meta, metrics=company.metrics))
+                #self.params['meta'] = company.meta
+                #self.params['metrics'] = company.metrics
+            except (DeadlineExceededError, IndexError) as e:
                 self.params['message'] = 'Error retrieving filings'
                 self.params['error'] = 'error'
                 self.params['meta']['ticker'] = ticker.upper()
         
-        self.params['prices'] = stocks.json_prices(ticker)[:252*3] # 3 year of data
-        #company['prices'] = stocks.json_prices(ticker)[:252]
+        self.params['meta']['ticker'] = ticker.upper()####TESTING
+        self.params['prices'] = stocks.json_prices(ticker)[:252*5] # 5 year of data
         self.render("company.html", **self.params)
-
 
 app = webapp2.WSGIApplication(
     [

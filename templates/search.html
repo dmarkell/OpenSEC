@@ -11,11 +11,11 @@
                 {% if not (filings or mgr_matches) %}
                 <table>
                     <tr>
-                        <td>Holder:</td>
+                        <td>M<span>ana</span>g<span>e</span>r</td>
                         <td><input type="radio" value="holder" name="querytype" onChange="toggleQuery()" checked></td>
                     </tr>
                     <tr>
-                        <td>Company:</td>
+                        <td>Co<span>mpany</span></td>
                         <td><input onChange="toggleQuery()" type="radio" value="company" name="querytype"></td>
                     </tr>
                 </table>
@@ -23,7 +23,7 @@
                 <div class="input-wrapper">
                     {% if not (filings or mgr_matches) %}
                     <input type="search" id="query" name="query"
-                    value="{{query}}" placeholder="Manager Name">
+                    value="{{query}}" placeholder="Manager...">
                     <input type="submit" class="search" value="Search">
                     {% endif %}
                     {% if mgr_matches %}

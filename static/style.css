@@ -1,7 +1,13 @@
 
-html, body {
+html, body, form, h1, h2, h3, h4, h5, h6, input, label, table, td, div {
     margin:0;
     padding:0;
+
+}
+
+body {
+    font-family: 'Droid Sans', Helvetica, sans-serif;
+    background-color: #f0f0f0;
 }
 
 footer {
@@ -16,6 +22,7 @@ footer {
     color: midnightblue;
 }
 
+
 .follow {
     margin-right: 10px;
 }
@@ -24,10 +31,7 @@ input, textarea, select {
     font-family: inherit;
 }
 
-body {
-    font-family: 'Droid Sans', Helvetica, sans-serif;
-    background: #f0f0f0 url(worn_dots.png);
-}
+
 
 a {
     text-decoration: none;
@@ -40,6 +44,7 @@ a:hover {
 .menu{
     float: right;
     text-align: center;
+    height: 40px;
 }
 
 .wrapper {
@@ -49,24 +54,24 @@ a:hover {
 
 /* Header & envelope --------- */
 
+    
 header, body:before, body:after {width: 100%;}
 
 header, body:before {
     position: fixed;
     top: 0;
     left: 0;
-    height: 65px;
+    height: 50px;
 }
 
 header {
     left: 0;
     background-color: rgba(189, 195, 199, 0.9);
     color: midnightblue;
-    padding: 0 2%;
     box-sizing: border-box;
+    padding: 5px;
     z-index: 9999;
 }
-
 
 body:before,
 body:after {
@@ -75,13 +80,13 @@ body:after {
 }
 
 body:before {
-    box-shadow: 0 1px 3px midnightblue;
+    box-shadow: 0 1px 1px midnightblue;
     z-index: 9997;
 }
 
 body:after {
     position: absolute;
-    top: 65px;
+    top: 50px;
     height: 3px;
     background: inherit;
     z-index: 9998;
@@ -89,21 +94,19 @@ body:after {
 
 header h1 {
     float: left;
-    margin: 11px 0; /* Manual centering (60px - 37px) / 2 */
 }
 
 header table {
     display: inline-block;
     background-color: transparent;
-    margin-bottom: 8px; /* manual centering in fixed-height header */
+        float: left;
+        border-spacing: 0;
 }
 
 header table td {
     text-align: left;
-    font-weight: bold;
-
+    padding: 2px;
 }
-
 
 /* --END header & envelope -------- */
 
@@ -114,23 +117,12 @@ header table td {
 
 /* Search form */
 
-form {
-    text-align: center;
-    font-family: inherit;
-}
-
-
-form p {
-    margin:0px;
-}
-
 option {
     padding:8px 5px;
     border: 2px solid #bdc3c7;
 }
 
 label {
-    margin: 0;
     display: block;
 }
 
@@ -151,15 +143,20 @@ select {
 }
 
 .input-wrapper {
-    margin: 10px auto;
     border-radius: 6px;
     background-color: white;
     display: inline-block;
     overflow: hidden;
+    padding: 2px;
+        float: right;
 }
 
 input[type=search] {
-    padding: 5px;
+    margin: 0;
+}
+
+input[type=radio] {
+    display: table-cell;
 }
 
 input[type=submit] {
@@ -167,9 +164,8 @@ input[type=submit] {
     padding: 0;
     width: 32px;
     height: 32px;
-    margin: 5px;
     display: inline-block;
-    background: transparent url(sprites.svg) no-repeat;    
+    background: transparent url(sprites.svg) no-repeat;
 }
 
 input[type=submit].search {
@@ -201,28 +197,48 @@ input[type=submit].select:hover,
 
 svg {
     max-width: 100%;
-    background-color: white;   
+    background-color: white;
+    font-size: 0.6em;
 }
 
-.area {
+.line {
+    stroke: midnightblue;
+    fill: none;
+    stroke-width: 1.5px;
+}
+
+.chart rect {
+    fill: none;
+    stroke: none;
+}
+
+.chart rect:hover {
     fill: midnightblue;
 }
 
 .axis path,
 .axis line {
     fill: none;
-    stroke: #000;
+    stroke: midnightblue;
     shape-rendering: crispEdges;
-
 }
 
+.axis text {
+    color: midnightblue;
+}
+
+.hover-line { 
+    stroke: midnightblue;
+    fill: none;
+    stroke-width: 1px;
+    shape-rendering: crispEdges;
+}
 
 /* --END prices chart ---- */
 
 /* Both tables ------------ */
 
 table {
-    margin:5px auto;
     border-collapse: collapse;
     background-color: #f0f0f0;
     font-size:0.8em;
@@ -271,6 +287,7 @@ caption .right {
 caption .small {
     font-size: 0.8em;
 }
+
 
 caption a {
     color: white;
@@ -413,7 +430,7 @@ button:hover{
     border-bottom: thin solid;
 }
 
-date {
+time {
     font-size: 0.5em;
     color: black;
 }
@@ -482,12 +499,14 @@ table + p {
 /* Media queries -------------------- */
 
 @media only screen and (max-width: 680px) {
-        header h1 {
+    header h1 {
         display: none;
     }
+}
 
-    .menu {
-        float: none;
+@media only screen and (min-width: 650px) {
+    .wrapper {
+        width: 585px;
     }
 }
 
@@ -501,7 +520,6 @@ table + p {
     .company th:nth-child(6) {
         border-right: 0;
     }
-
 
     .company tr:last-child > td:nth-child(6) {
         border-radius: 0 0 8px 0;
@@ -535,10 +553,24 @@ table + p {
         border-radius: 0 0 8px 0;
     }
 
-}
-
-@media only screen and (min-width: 650px) {
-    .wrapper {
-        width: 585px;
+    time {
+        display: none;
     }
+
+    input[type=search] {
+        width: 150px;
+    }
+
+    /*header {
+        padding: 0;
+    }
+
+    input {
+        font-size: 12px;
+    }*/
+
+    header table td span {
+        /*display: none;*/
+    }
+
 }
