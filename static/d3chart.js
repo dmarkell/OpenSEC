@@ -1,10 +1,11 @@
-var aspect = 585 / 300;
-
-var margin = {top: 20, right: 10, bottom: 20, left: 25},
-    height = 300 - margin.top - margin.bottom, // 300
-    width = 585 - margin.left - margin.right; // 585
+var aspect = 300 / 585;
 
 var chart = d3.select(".chart");
+
+var margin = {top: 20, right: 10, bottom: 20, left: 25},
+    targetWidth = parseInt(chart.style("width"), 10),
+    width = targetWidth - margin.left - margin.right, // 585px width
+    height = targetWidth * aspect - margin.top - margin.bottom; // 300px height
 
 var x = d3.time.scale()
     .range([0, width]);
@@ -40,7 +41,6 @@ var barWidth = width / data.length;
 
 x.domain(d3.extent(data.map(dateFn)));
 y.domain([0, d3.max(data.map(closeFn))]);
-
 
 svg.append("g")
     .attr("class", "x axis")
@@ -81,4 +81,11 @@ chart.on("mouseover", function() {
     hoverLine.style("opacity", 1e-6);
 });
     
+d3.select(window).on("resize", resize);
 
+function resize() {
+    // update width
+    targetWidth = parseInt(chart.style("width"), 10) - margin.left - margin.right;
+    width = width - margin.left - margin.right;
+    height = aspect * targetWidth - margin.top - margin.bottom;
+}

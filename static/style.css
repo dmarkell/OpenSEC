@@ -22,7 +22,6 @@ footer {
     color: midnightblue;
 }
 
-
 .follow {
     margin-right: 10px;
 }
@@ -50,6 +49,7 @@ a:hover {
 .wrapper {
     margin: 70px auto 650px;
     width: 80%;
+    overflow: hidden;
 }
 
 /* Header & envelope --------- */
@@ -148,7 +148,7 @@ select {
     display: inline-block;
     overflow: hidden;
     padding: 2px;
-        float: right;
+    float: right;
 }
 
 input[type=search] {
@@ -196,7 +196,6 @@ input[type=submit].select:hover,
 
 
 svg {
-    max-width: 100%;
     background-color: white;
     font-size: 0.6em;
 }
@@ -206,6 +205,11 @@ svg {
     fill: none;
     stroke-width: 1.5px;
 }
+
+.chart {
+    width: 100%;
+}
+
 
 .chart rect {
     fill: none;
