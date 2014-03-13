@@ -1,8 +1,12 @@
-
 html, body, form, h1, h2, h3, h4, h5, h6, input, label, table, td, div {
     margin:0;
     padding:0;
 
+}
+
+table {
+    border-collapse: collapse;
+    border-spacing: 0;
 }
 
 body {
@@ -30,8 +34,6 @@ input, textarea, select {
     font-family: inherit;
 }
 
-
-
 a {
     text-decoration: none;
 }
@@ -47,7 +49,7 @@ a:hover {
 }
 
 .wrapper {
-    margin: 70px auto 650px;
+    margin: 70px auto;
     width: 80%;
     overflow: hidden;
 }
@@ -99,8 +101,7 @@ header h1 {
 header table {
     display: inline-block;
     background-color: transparent;
-        float: left;
-        border-spacing: 0;
+    float: left;
 }
 
 header table td {
@@ -210,16 +211,6 @@ svg {
     width: 100%;
 }
 
-
-.chart rect {
-    fill: none;
-    stroke: none;
-}
-
-.chart rect:hover {
-    fill: midnightblue;
-}
-
 .axis path,
 .axis line {
     fill: none;
@@ -231,6 +222,10 @@ svg {
     color: midnightblue;
 }
 
+.focus circle {
+    fill: none;
+}
+
 .hover-line { 
     stroke: midnightblue;
     fill: none;
@@ -238,12 +233,16 @@ svg {
     shape-rendering: crispEdges;
 }
 
+.focus circle {
+        fill: none;
+        stroke: red;
+    }
+
 /* --END prices chart ---- */
 
 /* Both tables ------------ */
 
 table {
-    border-collapse: collapse;
     background-color: #f0f0f0;
     font-size:0.8em;
 }
