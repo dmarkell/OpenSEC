@@ -18,7 +18,8 @@ footer {
     position: fixed;
     bottom: 0;
     left: 0;
-    padding: 4px 20px 4px 0;
+    padding: 4px 10px 4px 0;
+    box-sizing: border-box;
     text-align: right;
     background-color: rgba(189, 195, 199, 0.5);
     width: 100%;
@@ -209,6 +210,7 @@ svg {
 
 .chart {
     width: 100%;
+    -webkit-user-select: none;
 }
 
 .axis path,
@@ -444,7 +446,7 @@ time {
 
 /* Manual width for description column */
 .company th:nth-child(2) {
-    width: 75px;
+    width: 35px;
     font-weight: normal;
 }
 
@@ -515,7 +517,7 @@ table + p {
     }
 }
 
-@media only screen and (max-width: 560px) {
+@media only screen and (max-width: 568px) {
     .company td:nth-child(7),
     .company th:nth-child(7) {
         display: none;
@@ -528,6 +530,18 @@ table + p {
 
     .company tr:last-child > td:nth-child(6) {
         border-radius: 0 0 8px 0;
+    }
+
+    header, body:before, body:after, footer {
+        position: static;
+    }
+
+    .wrapper {
+        margin: 20px auto;
+    }
+
+    body:before, body:after {
+        height: 0;
     }
 
 }
@@ -564,18 +578,6 @@ table + p {
 
     input[type=search] {
         width: 150px;
-    }
-
-    /*header {
-        padding: 0;
-    }
-
-    input {
-        font-size: 12px;
-    }*/
-
-    header table td span {
-        /*display: none;*/
     }
 
 }
