@@ -2,10 +2,16 @@ var aspect = 300 / 585;
 
 var chart = d3.select(".chart");
 
-var margin = {top: 20, right: 10, bottom: 20, left: 35},
+var margin = {top: 20, right: 10, bottom: 20, left: 25},
     targetWidth = parseInt(chart.style("width"), 10),
     width = targetWidth - margin.left - margin.right, // 585px width
     height = targetWidth * aspect - margin.top - margin.bottom; // 300px height
+
+var x = d3.time.scale()
+    .range([0, width]);
+
+var y = d3.scale.linear()
+    .range([height, 0]);
 
 var parseDate = d3.time.format("%Y-%m-%d").parse,
     dateFn = function(d) { return parseDate(d.Date) },
@@ -18,18 +24,6 @@ var parseDate = d3.time.format("%Y-%m-%d").parse,
         return data.length - right_arr.length;
     };
 
-var data = JSONData.slice(0, 252*5);
-
-var x = d3.time.scale()
-    .range([0, width]);
-
-var y = d3.scale.linear()
-    .range([height, 0]);
-    
-data.sort(function(a, b) {
-      return dateFn(a) - dateFn(b);
-    });
-
 var xAxis = d3.svg.axis()
     .scale(x)
     .orient("bottom")
@@ -37,8 +31,7 @@ var xAxis = d3.svg.axis()
 
 var yAxis = d3.svg.axis()
     .scale(y)
-    .orient("left")
-    .tickFormat(formatCurrency);
+    .orient("left");
 
 var line = d3.svg.line()
     .x(function(d) { return x(dateFn(d)); })
@@ -48,7 +41,13 @@ var svg = chart.append("svg")
     .attr("width", width + margin.left + margin.right)
     .attr("height", height + margin.top + margin.bottom)
   .append("g")
+    .attr("class", "plot")
     .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+var data = JSONData.slice(0, 252*5);
+data.sort(function(a, b) {
+      return dateFn(a) - dateFn(b);
+    });
 
 x.domain(d3.extent(data.map(dateFn)));
 y.domain([0, d3.max(data.map(closeFn))]);
@@ -94,7 +93,6 @@ var hoverLine2 = hoverLineGroup
       .attr("y1", 0).attr("y2", 0)
       .style("opacity", 1e-6);
 
-
 chart.on("mouseover", function() {
 }).on("mousemove", function() {
     var mouse_x = d3.mouse(this)[0],
@@ -133,7 +131,35 @@ d3.select(window).on("resize", resize);
 
 function resize() {
     // update width
-    targetWidth = parseInt(chart.style("width"), 10) - margin.left - margin.right;
-    width = width - margin.left - margin.right;
+    targetWidth = parseInt(chart.style("width"), 10);
+    width = targetWidth - margin.left - margin.right;
     height = aspect * targetWidth - margin.top - margin.bottom;
+    console.log(targetWidth, width, height);
+
+    // update x and y scales
+    x.range([0, width]);
+    y.range([height, 0]);
+
+    // update stuff that uses width, height, x or y
+    d3.selectAll("svg")
+        .attr("width", width + margin.left + margin.right)
+        .attr("height", height + margin.top + margin.bottom);
+    d3.selectAll(".plot")
+        .attr("transform", "translate(" + margin.left + "," + margin.top + ")")
+
+    d3.selectAll(".x")
+        .attr("transform", "translate(0," + height + ")")
+        .call(xAxis.ticks(d3.time.months, 6));
+
+    d3.selectAll(".y")
+        .attr("class", "y axis")
+        .call(yAxis);
+
+    d3.selectAll(".line")
+        .datum(data)        
+        .attr("d", line);
+
+    hoverLine1.attr("y1", 0).attr("y2", height)
+    hoverLine2.attr("x1", 0).attr("x2", width)
+
 }
