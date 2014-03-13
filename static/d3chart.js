@@ -1,28 +1,38 @@
-var aspect = 300 / 585;
 
 var chart = d3.select(".chart");
-
-var margin = {top: 20, right: 10, bottom: 20, left: 25},
-    targetWidth = parseInt(chart.style("width"), 10),
-    width = targetWidth - margin.left - margin.right, // 585px width
-    height = targetWidth * aspect - margin.top - margin.bottom; // 300px height
-
-var x = d3.time.scale()
-    .range([0, width]);
-
-var y = d3.scale.linear()
-    .range([height, 0]);
 
 var parseDate = d3.time.format("%Y-%m-%d").parse,
     dateFn = function(d) { return parseDate(d.Date) },
     closeFn = function(d) { return +d.AdjClose },
-    formatCurrency = d3.format("$,.2"),
+    formatCurrency = d3.format("$,.2f"),
+    formatDate = d3.time.format('%b %d, %Y')
     next_i = function(data, lookup) {
         var right_arr = data.filter(function(d) {
             return dateFn(d) >= lookup
         });
         return data.length - right_arr.length;
     };
+
+var data = JSONData.slice(0, 252*5);
+data.sort(function(a, b) {
+      return dateFn(a) - dateFn(b);
+    });
+var last = data[data.length - 1];
+var fattest = d3.max(data.map(function(d) {return formatCurrency(closeFn(d)).length ;}))
+
+var margin = {top: 20, right: 10, bottom: 20, left: fattest * 7},
+    aspect = 300 / 585,
+    targetWidth = parseInt(chart.style("width"), 10),
+    width = targetWidth - margin.left - margin.right, // 585px width
+    height = targetWidth * aspect - margin.top - margin.bottom; // 300px height
+
+var x = d3.time.scale()
+    .range([0, width])
+    .domain(d3.extent(data.map(dateFn)));
+
+var y = d3.scale.linear()
+    .range([height, 0])
+    .domain([0, d3.max(data.map(closeFn))]);
 
 var xAxis = d3.svg.axis()
     .scale(x)
@@ -31,7 +41,8 @@ var xAxis = d3.svg.axis()
 
 var yAxis = d3.svg.axis()
     .scale(y)
-    .orient("left");
+    .orient("left")
+    .tickFormat(formatCurrency);
 
 var line = d3.svg.line()
     .x(function(d) { return x(dateFn(d)); })
@@ -44,18 +55,16 @@ var svg = chart.append("svg")
     .attr("class", "plot")
     .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 
-var data = JSONData.slice(0, 252*5);
-data.sort(function(a, b) {
-      return dateFn(a) - dateFn(b);
-    });
-
-x.domain(d3.extent(data.map(dateFn)));
-y.domain([0, d3.max(data.map(closeFn))]);
-
 svg.append("g")
     .attr("class", "x axis")
     .attr("transform", "translate(0," + height + ")")
-    .call(xAxis.ticks(d3.time.months, 6));
+    .call(xAxis.ticks(d3.time.months, 12))
+  .append("text")
+    .attr("class", "last")
+    .attr("x", width)
+    .attr("y", -10)
+    .style("text-anchor", "end")
+    .text(formatDate(dateFn(last)) + ": " + formatCurrency(closeFn(last)));
 
 svg.append("g")
     .attr("class", "y axis")
@@ -76,21 +85,20 @@ var focus = svg.append("g")
 focus.append("circle")
     .attr("r", 4.5);
 
-focus.append("text")
-    .attr("x", -30)
-    .attr("y", -20)
-    .attr("dy", ".35em");
-
-var hoverLine1 = hoverLineGroup
+var hoverLineVert = hoverLineGroup
     .append("line")
-      .attr("x1", margin.left).attr("x2", margin.left)
-      .attr("y1", 0).attr("y2", height)
+      .attr("x1", margin.left)
+      .attr("x2", margin.left)
+      .attr("y1", 0)
+      .attr("y2", height)
       .style("opacity", 1e-6);
 
-var hoverLine2 = hoverLineGroup
+var hoverLineHoriz = hoverLineGroup
     .append("line")
-      .attr("x1", 0).attr("x2", width)
-      .attr("y1", 0).attr("y2", 0)
+      .attr("x1", 0)
+      .attr("x2", width)
+      .attr("y1", 0)
+      .attr("y2", 0)
       .style("opacity", 1e-6);
 
 chart.on("mouseover", function() {
@@ -104,27 +112,24 @@ chart.on("mouseover", function() {
     if (mouse_x > margin.left && mouse_x < margin.left + width) {
         
         var d = x0 - dateFn(d0) > dateFn(d1) - x0 ? d1 : d0;
-        hoverLine1
+        hoverLineVert
             .attr("x1", mouse_x - margin.left)
             .attr("x2", mouse_x - margin.left)
             .style("opacity", 0.3);
-        hoverLine2
+        hoverLineHoriz
             .attr("y1", y(closeFn(d)))
             .attr("y2", y(closeFn(d)))
             .style("opacity", 0.3);
         focus
             .style("display", null)
             .attr("transform", "translate(" + x(dateFn(d)) + "," + y(closeFn(d)) + ")")
-            .select("text").text(formatCurrency(closeFn(d)));
-
+        d3.select(".last")
+            .text(formatDate(dateFn(d)) + ": " + formatCurrency(closeFn(d)));
     } else {
-        hoverLine1.style("opacity", 1e-6);
-        hoverLine2.style("opacity", 1e-6);
+        hoverLineVert.style("opacity", 1e-6);
+        hoverLineHoriz.style("opacity", 1e-6);
         focus.style("display", "none");
     };
-}).on("mouseout", function() {
-    hoverLine1.style("opacity", 1e-6);
-    hoverLine2.style("opacity", 1e-6);
 });
     
 d3.select(window).on("resize", resize);
@@ -134,7 +139,6 @@ function resize() {
     targetWidth = parseInt(chart.style("width"), 10);
     width = targetWidth - margin.left - margin.right;
     height = aspect * targetWidth - margin.top - margin.bottom;
-    console.log(targetWidth, width, height);
 
     // update x and y scales
     x.range([0, width]);
@@ -149,7 +153,11 @@ function resize() {
 
     d3.selectAll(".x")
         .attr("transform", "translate(0," + height + ")")
-        .call(xAxis.ticks(d3.time.months, 6));
+        .call(xAxis.ticks(d3.time.months, 12));
+
+    d3.select(".last")
+        .attr("x", width)
+        .text(formatDate(dateFn(last)) + ": " + formatCurrency(closeFn(last)));
 
     d3.selectAll(".y")
         .attr("class", "y axis")
@@ -159,7 +167,7 @@ function resize() {
         .datum(data)        
         .attr("d", line);
 
-    hoverLine1.attr("y1", 0).attr("y2", height)
-    hoverLine2.attr("x1", 0).attr("x2", width)
+    hoverLineVert.attr("y1", 0).attr("y2", height)
+    hoverLineHoriz.attr("x1", 0).attr("x2", width)
 
 }

@@ -217,9 +217,12 @@ svg {
     stroke: midnightblue;
     shape-rendering: crispEdges;
 }
+.chart text {
+    fill: midnightblue;
+}
 
-.axis text {
-    color: midnightblue;
+.last {
+    font-size: 1.5em;
 }
 
 .focus circle {
@@ -228,7 +231,6 @@ svg {
 
 .hover-line { 
     stroke: midnightblue;
-    fill: none;
     stroke-width: 1px;
     shape-rendering: crispEdges;
 }
