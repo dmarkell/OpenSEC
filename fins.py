@@ -115,7 +115,7 @@ class Filing:
         print "{} seconds".format(time.time() - start)
         self.fields = {}
         self.get_instances()
-        #!#self.get_fields()
+        self.get_fields()
 
 
     def _load_root(self, url):
@@ -213,11 +213,11 @@ class Filing:
                     if el.tag.endswith("explicitMember"):
                         segment = el.text
                     if el.tag.endswith("instant"):
-                        period = [el.text, el.text]
+                        period = [el.text.strip(), el.text.strip()]
                     if el.tag.endswith("startDate"):
-                        period.append(el.text)
+                        period.append(el.text.strip())
                     if el.tag.endswith("endDate"):
-                        period.insert(0, el.text)
+                        period.insert(0, el.text.strip())
 
                 period = tuple(period)
 
@@ -260,8 +260,8 @@ class Company:
         for fdate, furl in self.filings_list:
             key = "{}|{}".format(fdate, furl)
             filing = Filing(furl)
-            #!#self.filings[key] = filing.fields
-           #!#self.meta['filing_dates'].append((filing.fields['asof'], fdate))
+            self.filings[key] = filing.fields
+            self.meta['filing_dates'].append((filing.fields['asof'], fdate))
 
     def get_filings_list(self):
 
@@ -427,7 +427,7 @@ class Company:
 
 
     def per_to_delta(self, period):
-        """ Takes end_date, start_date list or tuple and delta (# days) '2013-06-29'"""
+        """Takes end_date, start_date list or tuple and delta (# days)"""
         
         end_date = period[0]
         period = map(lambda x: datetime.datetime.strptime(x, DFMT), period)
@@ -436,7 +436,7 @@ class Company:
         return delta
 
     def hist_fields(self, query):
-        """ Returns the 0th field entry stored at query key in each filing.
+        """Returns the 0th field entry stored at query key in each filing.
         INPUT: query string matching a key in the self.filings dictionaries
         OUTPUT: 
         NOTES:
@@ -468,7 +468,7 @@ class Company:
         return results
 
     def truncate_hist(self, fields):
-        """ Truncates from first period longer than 100 days """
+        """Truncates from first period longer than 100 days """
 
         for i in xrange(len(fields)):
             if fields[i][1] > 100:
