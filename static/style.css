@@ -1,4 +1,4 @@
-html, body, form, h1, h2, h3, h4, h5, h6, input, label, table, td, div {
+html, body, form, h1, h2, h3, h4, h5, h6, input, label, table, td, div, p {
     margin:0;
     padding:0;
 
@@ -200,6 +200,8 @@ input[type=submit].select:hover,
 svg {
     background-color: white;
     font-size: 0.6em;
+    box-shadow: 2px 2px 5px midnightblue;
+    border-radius: 5px;
 }
 
 .line {
@@ -252,7 +254,6 @@ table {
 }
 
 caption {
-    padding:0;
     background-color: grey;
     color: white;    
     font-size: 1.5em;
@@ -261,6 +262,10 @@ caption {
     border-radius: 8px 8px 0 0;
     position: relative;
     height: 2.6em; /* 45px */
+}
+
+.company caption {
+    height: 1.5em;
 }
 
 caption .top, 
@@ -295,7 +300,6 @@ caption .small {
     font-size: 0.8em;
 }
 
-
 caption a {
     color: white;
     text-decoration: underline;
@@ -303,7 +307,8 @@ caption a {
 
 .manager tfoot th,
 .manager thead,
-.company tr:nth-child(n+13) {
+.company tr:nth-child(n+13),
+.company h2 {
     text-align: center;
     background-color: grey;
     color: white;
@@ -418,6 +423,11 @@ button:hover{
     text-align: center;
 }
 
+.company h2 {
+    border-radius: 8px;
+    margin-bottom: 2px;
+}
+
 .company tr {
     height: 20px;
 }
@@ -495,9 +505,14 @@ time {
 }
 
 table + p {
+    margin-top: 10px;
+}
+
+p {
     font-size: 0.8em;
     font-style: italic;
     text-align: right;
+    margin
 }
 
 /* --END company table---------- */

@@ -20,7 +20,7 @@ data.sort(function(a, b) {
 var last = data[data.length - 1];
 var fattest = d3.max(data.map(function(d) {return formatCurrency(closeFn(d)).length ;}))
 
-var margin = {top: 20, right: 10, bottom: 20, left: fattest * 7},
+var margin = {top: 10, right: 10, bottom: 20, left: fattest * 7},
     aspect = 300 / 585,
     targetWidth = parseInt(chart.style("width"), 10),
     width = targetWidth - margin.left - margin.right, // 585px width
@@ -102,35 +102,38 @@ var hoverLineHoriz = hoverLineGroup
       .style("opacity", 1e-6);
 
 chart.on("mouseover", function() {
-}).on("mousemove", function() {
-    var mouse_x = d3.mouse(this)[0],
-        x0 = x.invert(mouse_x - margin.left),
-        i = next_i(data, x0),
-        d0 = data[i - 1],
-        d1 = data[i];
+}).on("mousemove", adjustHover);
 
-    if (mouse_x > margin.left && mouse_x < margin.left + width) {
-        
-        var d = x0 - dateFn(d0) > dateFn(d1) - x0 ? d1 : d0;
-        hoverLineVert
-            .attr("x1", mouse_x - margin.left)
-            .attr("x2", mouse_x - margin.left)
-            .style("opacity", 0.3);
-        hoverLineHoriz
-            .attr("y1", y(closeFn(d)))
-            .attr("y2", y(closeFn(d)))
-            .style("opacity", 0.3);
-        focus
-            .style("display", null)
-            .attr("transform", "translate(" + x(dateFn(d)) + "," + y(closeFn(d)) + ")")
-        d3.select(".last")
-            .text(formatDate(dateFn(d)) + ": " + formatCurrency(closeFn(d)));
+function adjustHover() {
+    var x0, i, d0, d1, d;
+    var mouse_x = d3.mouse(this)[0];
+
+    if (mouse_x < margin.left) {
+        d = data[0]; // focus and crosshairs stick at left side
+    } else if (mouse_x > margin.left + width) {
+        d = data[data.length - 1]; // focus and crosshairs stick at right side
     } else {
-        hoverLineVert.style("opacity", 1e-6);
-        hoverLineHoriz.style("opacity", 1e-6);
-        focus.style("display", "none");
-    };
-});
+        x0 = x.invert(mouse_x - margin.left);
+        i = next_i(data, x0);
+        d0 = data[i - 1];
+        d1 = data[i];
+        d = x0 - dateFn(d0) > dateFn(d1) - x0 ? d1 : d0;
+    }
+
+    hoverLineVert
+        .attr("x1", x(dateFn(d)))
+        .attr("x2", x(dateFn(d)))
+        .style("opacity", 0.3);
+    hoverLineHoriz
+        .attr("y1", y(closeFn(d)))
+        .attr("y2", y(closeFn(d)))
+        .style("opacity", 0.3);
+    focus
+        .style("display", null)
+        .attr("transform", "translate(" + x(dateFn(d)) + "," + y(closeFn(d)) + ")")
+    d3.select(".last")
+        .text(formatDate(dateFn(d)) + ": " + formatCurrency(closeFn(d)));
+};
     
 d3.select(window).on("resize", resize);
 
